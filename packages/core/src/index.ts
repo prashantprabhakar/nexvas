@@ -8,6 +8,8 @@ export { PluginRegistry } from './PluginRegistry.js'
 export { FontManager } from './FontManager.js'
 
 // Objects
+export { Color } from './Color.js'
+
 export {
   BaseObject,
   type BaseObjectProps,
@@ -15,6 +17,7 @@ export {
   Rect,
   type RectProps,
   Circle,
+  type CircleProps,
   Line,
   type LineProps,
   Text,

@@ -85,9 +85,13 @@ export class Group extends BaseObject {
     if (this._children.length === 0) {
       return new BoundingBox(this.x, this.y, 0, 0)
     }
-    const visible = this._children.filter((c) => c.visible)
-    if (visible.length === 0) return new BoundingBox(this.x, this.y, 0, 0)
-    return visible.map((c) => c.getWorldBoundingBox()).reduce((acc, box) => acc.union(box))
+    let result: BoundingBox | null = null
+    for (const child of this._children) {
+      if (!child.visible) continue
+      const bb = child.getWorldBoundingBox()
+      result = result === null ? bb : result.union(bb)
+    }
+    return result ?? new BoundingBox(this.x, this.y, 0, 0)
   }
 
   // ---------------------------------------------------------------------------
@@ -97,7 +101,7 @@ export class Group extends BaseObject {
   hitTest(worldX: number, worldY: number, tolerance = 4): boolean {
     if (!this.visible) return false
     for (let i = this._children.length - 1; i >= 0; i--) {
-      if (this._children[i]!.hitTest(worldX, worldY, tolerance)) return true
+      if (this._children[i]!.hitTest(worldX, worldY, this._children[i]!.hitTolerance)) return true
     }
     return false
   }
@@ -109,7 +113,7 @@ export class Group extends BaseObject {
       if (child instanceof Group) {
         const hit = child.hitTestChild(worldX, worldY, tolerance)
         if (hit !== null) return hit
-      } else if (child.hitTest(worldX, worldY, tolerance)) {
+      } else if (child.hitTest(worldX, worldY, child.hitTolerance)) {
         return child
       }
     }

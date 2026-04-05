@@ -4,6 +4,11 @@ import type { ObjectJSON, RenderContext, ObjectEventMap, Fill, StrokeStyle } fro
 
 export type EventHandler<T> = (event: T) => void
 
+function sanitizeFinite(val: unknown, fallback: number): number {
+  const n = typeof val === 'number' ? val : fallback
+  return Number.isFinite(n) ? n : fallback
+}
+
 let _nextId = 1
 function generateId(): string {
   return `obj_${(_nextId++).toString(36)}`
@@ -26,6 +31,12 @@ export interface BaseObjectProps {
   locked?: boolean
   fill?: Fill | null
   stroke?: StrokeStyle | null
+  /** Whether the object can be moved interactively. Default: true. */
+  isMovable?: boolean
+  /** Whether the object can be resized interactively. Default: true. */
+  isResizable?: boolean
+  /** Hit testing tolerance in world units. Default: 4. */
+  hitTolerance?: number
 }
 
 /**
@@ -50,6 +61,12 @@ export abstract class BaseObject {
   locked: boolean
   fill: Fill | null
   stroke: StrokeStyle | null
+  /** Whether the object can be moved interactively. Default: true. */
+  isMovable: boolean
+  /** Whether the object can be resized interactively. Default: true. */
+  isResizable: boolean
+  /** Hit testing tolerance in world units. Default: 4. */
+  hitTolerance: number
 
   /** Reference to the parent Group, set by Group.add(). */
   parent: BaseObject | null = null
@@ -73,6 +90,9 @@ export abstract class BaseObject {
     this.locked = props.locked ?? false
     this.fill = props.fill ?? null
     this.stroke = props.stroke ?? null
+    this.isMovable = props.isMovable ?? true
+    this.isResizable = props.isResizable ?? true
+    this.hitTolerance = props.hitTolerance ?? 4
   }
 
   // ---------------------------------------------------------------------------
@@ -167,6 +187,9 @@ export abstract class BaseObject {
       locked: this.locked,
       fill: this.fill,
       stroke: this.stroke,
+      isMovable: this.isMovable,
+      isResizable: this.isResizable,
+      hitTolerance: this.hitTolerance,
     }
   }
 
@@ -176,20 +199,23 @@ export abstract class BaseObject {
   protected applyBaseJSON(json: ObjectJSON): void {
     ;(this as { id: string }).id = json.id
     this.name = json.name
-    this.x = json.x
-    this.y = json.y
-    this.width = json.width
-    this.height = json.height
-    this.rotation = json.rotation
-    this.scaleX = json.scaleX
-    this.scaleY = json.scaleY
-    this.skewX = json.skewX
-    this.skewY = json.skewY
-    this.opacity = json.opacity
+    this.x = sanitizeFinite(json.x, 0)
+    this.y = sanitizeFinite(json.y, 0)
+    this.width = Math.max(0, sanitizeFinite(json.width, 0))
+    this.height = Math.max(0, sanitizeFinite(json.height, 0))
+    this.rotation = sanitizeFinite(json.rotation, 0)
+    this.scaleX = sanitizeFinite(json.scaleX, 1)
+    this.scaleY = sanitizeFinite(json.scaleY, 1)
+    this.skewX = sanitizeFinite(json.skewX, 0)
+    this.skewY = sanitizeFinite(json.skewY, 0)
+    this.opacity = Math.max(0, Math.min(1, sanitizeFinite(json.opacity, 1)))
     this.visible = json.visible
     this.locked = json.locked
     this.fill = (json.fill as Fill | null | undefined) ?? null
     this.stroke = (json.stroke as StrokeStyle | null | undefined) ?? null
+    this.isMovable = typeof json['isMovable'] === 'boolean' ? json['isMovable'] : true
+    this.isResizable = typeof json['isResizable'] === 'boolean' ? json['isResizable'] : true
+    this.hitTolerance = sanitizeFinite(json['hitTolerance'], 4)
   }
 
   // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import type { BoundingBox } from './math/BoundingBox.js'
 import type { Layer } from './Layer.js'
 import type { Viewport } from './Viewport.js'
 import type { FontManager } from './FontManager.js'
+import type { BaseObject } from './objects/BaseObject.js'
 
 // ---------------------------------------------------------------------------
 // Serialization
@@ -125,6 +126,8 @@ export interface StageEventMap extends ObjectEventMap {
   // Plugin events — emitted by official plugins via stage.emit()
   /** Fired by SelectionPlugin when the selection changes. */
   'selection:change': { selected: unknown[] }
+  /** Fired by SelectionPlugin when objects are deleted via keyboard. */
+  'objects:deleted': { objects: unknown[] }
   /** Fired by HistoryPlugin when the undo/redo stack changes. */
   'history:change': { canUndo: boolean; canRedo: boolean }
 }
@@ -208,6 +211,10 @@ export interface StageInterface {
   /** Mark the stage as needing a redraw. Call after mutating objects programmatically. */
   markDirty(): void
   resize(physicalWidth: number, physicalHeight: number): void
+  /** Find all objects across all layers that match the predicate. */
+  find(predicate: (obj: BaseObject) => boolean): BaseObject[]
+  /** Find all objects of a specific type string (e.g. "Rect", "Circle"). */
+  findByType(type: string): BaseObject[]
 }
 
 // ---------------------------------------------------------------------------

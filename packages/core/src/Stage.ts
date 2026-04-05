@@ -104,6 +104,7 @@ export class Stage implements StageInterface {
     this.plugins = new PluginRegistry(this)
     this.fonts = new FontManager()
     this.fonts.init(options.canvasKit)
+    this.fonts.setOnFontLoaded(() => this.markDirty())
 
     this._syncCanvasSize()
 
@@ -165,6 +166,26 @@ export class Stage implements StageInterface {
       if (found !== undefined) return found
     }
     return undefined
+  }
+
+  /**
+   * Find all objects across all layers that match the predicate.
+   */
+  find(predicate: (obj: BaseObject) => boolean): BaseObject[] {
+    const results: BaseObject[] = []
+    for (const layer of this._layers) {
+      for (const obj of layer.objects) {
+        if (predicate(obj)) results.push(obj)
+      }
+    }
+    return results
+  }
+
+  /**
+   * Find all objects of a specific type string (e.g. "Rect", "Circle").
+   */
+  findByType(type: string): BaseObject[] {
+    return this.find((obj) => obj.getType() === type)
   }
 
   // ---------------------------------------------------------------------------
@@ -236,6 +257,8 @@ export class Stage implements StageInterface {
     if (this._destroyed) return
     // Update viewport in CSS pixels
     this.viewport.setSize(physicalWidth / this._pixelRatio, physicalHeight / this._pixelRatio)
+    // Invalidate cached canvas rect so event coordinates are recalculated after resize
+    this._events.invalidateRect()
     // Recreate the CanvasKit surface — it is invalidated when canvas dimensions change
     if (this._surface) {
       this._surface.dispose()

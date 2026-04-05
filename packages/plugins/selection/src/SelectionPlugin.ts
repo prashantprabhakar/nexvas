@@ -116,6 +116,10 @@ export class SelectionPlugin implements Plugin {
   private _dragState: DragState | null = null
   private _changeHandlers: Set<ChangeHandler> = new Set()
 
+  // Cached handle paints — created lazily on first draw, deleted on uninstall
+  private _handleFillPaint: SkPaint | null = null
+  private _handleStrokePaint: SkPaint | null = null
+
   // Bound event handlers (stored for cleanup)
   private _onMouseDown: (e: CanvasPointerEvent) => void
   private _onMouseMove: (e: CanvasPointerEvent) => void
@@ -171,6 +175,11 @@ export class SelectionPlugin implements Plugin {
       stage.removeRenderPass(this._renderPass)
       this._renderPass = null
     }
+
+    this._handleFillPaint?.delete()
+    this._handleFillPaint = null
+    this._handleStrokePaint?.delete()
+    this._handleStrokePaint = null
 
     this._selected.clear()
     this._dragState = null
@@ -304,7 +313,7 @@ export class SelectionPlugin implements Plugin {
 
     if (ds.type === 'move') {
       for (const obj of this._selected) {
-        if (obj.locked) continue
+        if (obj.locked || !obj.isMovable) continue
         const init = ds.initialPositions.get(obj.id)
         if (init) {
           obj.x = init.x + dWorldX
@@ -339,6 +348,8 @@ export class SelectionPlugin implements Plugin {
     if (!this._stage || this._selected.size === 0) return
     if (e.key !== 'Delete' && e.key !== 'Backspace') return
 
+    const deletedObjects = Array.from(this._selected)
+
     // Build a reverse index: object id -> layer (single pass over all layers)
     const objToLayer = new Map<string, typeof this._stage.layers[0]>()
     for (const layer of this._stage.layers) {
@@ -351,6 +362,7 @@ export class SelectionPlugin implements Plugin {
       objToLayer.get(obj.id)?.remove(obj)
     }
     this._selected.clear()
+    this._stage.emit('objects:deleted', { objects: deletedObjects })
     this._emitChange()
     this._stage.markDirty()
   }
@@ -384,7 +396,7 @@ export class SelectionPlugin implements Plugin {
 
   private _applyResize(handle: HandleId, dWorldX: number, dWorldY: number): void {
     for (const obj of this._selected) {
-      if (obj.locked) continue
+      if (obj.locked || !obj.isResizable) continue
       const init = this._dragState!.initialPositions.get(obj.id)
       if (!init) continue
 
@@ -532,6 +544,19 @@ export class SelectionPlugin implements Plugin {
   // Rendering
   // ---------------------------------------------------------------------------
 
+  private _ensureHandlePaints(ck: SelectionCK): void {
+    if (this._handleFillPaint !== null) return
+    const color = this._options.selectionColor
+    this._handleFillPaint = new ck.Paint()
+    this._handleFillPaint.setStyle(ck.PaintStyle.Fill)
+    this._handleFillPaint.setColor(ck.Color4f(1, 1, 1, 1))
+    this._handleFillPaint.setAntiAlias(true)
+    this._handleStrokePaint = new ck.Paint()
+    this._handleStrokePaint.setStyle(ck.PaintStyle.Stroke)
+    this._handleStrokePaint.setColor(ck.Color4f(color.r, color.g, color.b, color.a))
+    this._handleStrokePaint.setAntiAlias(true)
+  }
+
   private _drawSelection(ctx: RenderContext): void {
     if (this._selected.size === 0 || !ctx.skCanvas || !ctx.canvasKit) return
     const ck = ctx.canvasKit as SelectionCK
@@ -540,6 +565,8 @@ export class SelectionPlugin implements Plugin {
     const color = this._options.selectionColor
     // invScale keeps stroke widths and handle sizes constant in screen pixels regardless of zoom
     const invScale = 1 / vp.scale
+
+    this._ensureHandlePaints(ck)
 
     // Draw selection border for each selected object in world space
     for (const obj of this._selected) {
@@ -590,28 +617,17 @@ export class SelectionPlugin implements Plugin {
     const hs = (HANDLE_SIZE / 2) * invScale
     const circleR = (HANDLE_SIZE / 2) * invScale
 
+    // Update scale-dependent stroke width on cached handle stroke paint
+    this._handleStrokePaint!.setStrokeWidth(1.5 * invScale)
+
     for (const { hx, hy, isRot } of handles) {
-      const fillPaint = new ck.Paint()
-      fillPaint.setStyle(ck.PaintStyle.Fill)
-      fillPaint.setColor(ck.Color4f(1, 1, 1, 1))
-      fillPaint.setAntiAlias(true)
-
-      const strokePaint = new ck.Paint()
-      strokePaint.setStyle(ck.PaintStyle.Stroke)
-      strokePaint.setColor(ck.Color4f(color.r, color.g, color.b, color.a))
-      strokePaint.setStrokeWidth(1.5 * invScale)
-      strokePaint.setAntiAlias(true)
-
       if (isRot) {
-        canvas.drawCircle(hx, hy, circleR, fillPaint)
-        canvas.drawCircle(hx, hy, circleR, strokePaint)
+        canvas.drawCircle(hx, hy, circleR, this._handleFillPaint)
+        canvas.drawCircle(hx, hy, circleR, this._handleStrokePaint)
       } else {
-        canvas.drawRect([hx - hs, hy - hs, hx + hs, hy + hs], fillPaint)
-        canvas.drawRect([hx - hs, hy - hs, hx + hs, hy + hs], strokePaint)
+        canvas.drawRect([hx - hs, hy - hs, hx + hs, hy + hs], this._handleFillPaint)
+        canvas.drawRect([hx - hs, hy - hs, hx + hs, hy + hs], this._handleStrokePaint)
       }
-
-      fillPaint.delete()
-      strokePaint.delete()
     }
 
     // Draw marquee if active — marquee bounds are tracked in world space

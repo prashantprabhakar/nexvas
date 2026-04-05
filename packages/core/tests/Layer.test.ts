@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Layer } from '../src/Layer.js'
 import { Rect } from '../src/objects/Rect.js'
 import { Group } from '../src/objects/Group.js'
@@ -196,6 +196,79 @@ describe('Layer', () => {
       layer.setObjectMutationHandler(null)
       layer.add(new Rect())
       expect(handler).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('NV-005 render error boundary', () => {
+    let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore()
+    })
+
+    it('continues rendering other objects when one throws', () => {
+      const layer = new Layer()
+      const a = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      const b = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      const renderSpy = vi.spyOn(a, 'render').mockImplementation(() => {
+        throw new Error('render failed')
+      })
+      const bSpy = vi.spyOn(b, 'render')
+      layer.add(a).add(b)
+      expect(() => layer.render(makeCtx())).not.toThrow()
+      expect(renderSpy).toHaveBeenCalledOnce()
+      expect(bSpy).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('NV-008 Layer.clear() destroys objects', () => {
+    it('calls destroy() on each object when cleared', () => {
+      const layer = new Layer()
+      const rect = new Rect()
+      const destroySpy = vi.spyOn(rect, 'destroy')
+      layer.add(rect)
+      layer.clear()
+      expect(destroySpy).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('NV-022 Layer.strictRemove()', () => {
+    it('removes the object and returns this when found', () => {
+      const layer = new Layer()
+      const rect = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      layer.add(rect)
+      expect(() => layer.strictRemove(rect)).not.toThrow()
+      expect(layer.objects).toHaveLength(0)
+    })
+
+    it('throws when object is not in the layer', () => {
+      const layer = new Layer()
+      const rect = new Rect()
+      expect(() => layer.strictRemove(rect)).toThrow(/strictRemove/)
+    })
+  })
+
+  describe('NV-035 per-object hitTolerance', () => {
+    it('uses object hitTolerance for hit testing', () => {
+      const layer = new Layer()
+      // rect at (50, 50) with 0-size; default hitTolerance=4 means it hits within 4px
+      const rect = new Rect({ x: 50, y: 50, width: 0, height: 0 })
+      layer.add(rect)
+      // Within 4px tolerance, should hit
+      expect(layer.hitTest(52, 52)).toBe(rect)
+    })
+
+    it('objects with larger hitTolerance are easier to click', () => {
+      const layer = new Layer()
+      const rect = new Rect({ x: 50, y: 50, width: 0, height: 0 })
+      rect.hitTolerance = 10
+      layer.add(rect)
+      // Within 10px tolerance
+      expect(layer.hitTest(58, 50)).toBe(rect)
     })
   })
 })

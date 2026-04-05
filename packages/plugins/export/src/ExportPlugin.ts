@@ -221,7 +221,7 @@ export class ExportPlugin implements Plugin {
     const ctx: RenderContext = {
       skCanvas: canvas,
       canvasKit: this._stage.canvasKit,
-      fontManager: null,
+      fontManager: this._stage.fonts,
       pixelRatio: scale,
       viewport: {
         x: -region.x * scale,

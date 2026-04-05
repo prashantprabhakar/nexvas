@@ -210,4 +210,36 @@ describe('SelectionPlugin', () => {
     // (current impl still removes locked objects — this tests existing behavior)
     expect(stage.layers[0]!.objects).not.toContain(rectA)
   })
+
+  describe('NV-028 isMovable / isResizable', () => {
+    it('does not move objects where isMovable is false', () => {
+      rectA.isMovable = false
+      // Use screen coords far from any handle (handles are at corners/midpoints of 0,0→100,100)
+      // screenToWorld maps screen coords 1:1 in the test mock, so use 500,500 to avoid handle zone
+      fire(stage, 'mousedown', makePointerEvent({ worldX: 50, worldY: 50, screenX: 500, screenY: 500 }))
+      fire(stage, 'mousemove', makePointerEvent({ worldX: 80, worldY: 80, screenX: 530, screenY: 530 }))
+      fire(stage, 'mouseup', makePointerEvent({ worldX: 80, worldY: 80, screenX: 530, screenY: 530 }))
+      // rectA should not have moved
+      expect(rectA.x).toBe(0)
+      expect(rectA.y).toBe(0)
+    })
+
+    it('moves objects where isMovable is true (default)', () => {
+      // Use screen coords far from any handle
+      fire(stage, 'mousedown', makePointerEvent({ worldX: 50, worldY: 50, screenX: 500, screenY: 500 }))
+      fire(stage, 'mousemove', makePointerEvent({ worldX: 80, worldY: 80, screenX: 530, screenY: 530 }))
+      fire(stage, 'mouseup', makePointerEvent({ worldX: 80, worldY: 80, screenX: 530, screenY: 530 }))
+      expect(rectA.x).toBe(30)
+      expect(rectA.y).toBe(30)
+    })
+  })
+
+  describe('NV-034 objects:deleted event', () => {
+    it('emits objects:deleted when selected objects are deleted via keyboard', () => {
+      plugin.select(rectA)
+      const event = new KeyboardEvent('keydown', { key: 'Delete' })
+      document.dispatchEvent(event)
+      expect(stage.emit).toHaveBeenCalledWith('objects:deleted', { objects: [rectA] })
+    })
+  })
 })

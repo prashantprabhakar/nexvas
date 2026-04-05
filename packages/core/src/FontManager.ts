@@ -49,6 +49,12 @@ export class FontManager {
   private _pendingLoads: Promise<void>[] = []
   private _defaultFontUrl: string = DEFAULT_FONT_URL
   private _defaultFontLoaded = false
+  private _onFontLoaded: (() => void) | null = null
+
+  /** @internal — called by Stage so fonts trigger a re-render when they load. */
+  setOnFontLoaded(fn: () => void): void {
+    this._onFontLoaded = fn
+  }
 
   /** @internal — called by Stage with the CanvasKit instance. */
   init(ck: unknown): void {
@@ -91,6 +97,7 @@ export class FontManager {
     }
     this._loadedFonts.set(name, data)
     this._fontProvider?.registerFont(data, name)
+    this._onFontLoaded?.()
   }
 
   private _loadDefaultFont(): void {

@@ -45,6 +45,72 @@ function makeTouchEvent(
 }
 
 describe('EventSystem', () => {
+  describe('emitStage stopPropagation (NV-025)', () => {
+    it('stops subsequent handlers when stopPropagation() is called', () => {
+      const viewport = new Viewport()
+      viewport.setSize(800, 600)
+      const canvas = makeCanvas()
+      const events = new EventSystem(canvas, viewport, () => [] as unknown as readonly Layer[])
+
+      let secondFired = false
+      events.on('mousedown', (e) => {
+        e.stopPropagation()
+      })
+      events.on('mousedown', () => {
+        secondFired = true
+      })
+
+      // Simulate a pointerdown on the canvas
+      const pointerEvent = new PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true })
+      canvas.dispatchEvent(pointerEvent)
+
+      expect(secondFired).toBe(false)
+
+      events.destroy()
+    })
+
+    it('does not stop handlers when stopPropagation() is not called', () => {
+      const viewport = new Viewport()
+      viewport.setSize(800, 600)
+      const canvas = makeCanvas()
+      const events = new EventSystem(canvas, viewport, () => [] as unknown as readonly Layer[])
+
+      let secondFired = false
+      events.on('mousedown', () => {
+        // does not call stopPropagation
+      })
+      events.on('mousedown', () => {
+        secondFired = true
+      })
+
+      const pointerEvent = new PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true })
+      canvas.dispatchEvent(pointerEvent)
+
+      expect(secondFired).toBe(true)
+
+      events.destroy()
+    })
+
+    it('does not fire handlers added during dispatch in the same tick (NV-007)', () => {
+      const viewport = new Viewport()
+      viewport.setSize(800, 600)
+      const canvas = makeCanvas()
+      const events = new EventSystem(canvas, viewport, () => [] as unknown as readonly Layer[])
+
+      const lateHandler = vi.fn()
+      events.on('mousedown', () => {
+        events.on('mousedown', lateHandler)
+      })
+
+      const pointerEvent = new PointerEvent('pointerdown', { clientX: 100, clientY: 100, bubbles: true })
+      canvas.dispatchEvent(pointerEvent)
+
+      expect(lateHandler).not.toHaveBeenCalled()
+
+      events.destroy()
+    })
+  })
+
   describe('touch tap detection', () => {
     it('emits tap on a short, stationary touchstart+touchend', () => {
       const viewport = new Viewport()

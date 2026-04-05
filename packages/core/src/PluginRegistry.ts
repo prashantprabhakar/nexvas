@@ -20,7 +20,17 @@ export class PluginRegistry {
         `Plugin "${plugin.name}" is already installed. Uninstall it first if you want to reinstall.`,
       )
     }
-    plugin.install(this._stage, options)
+    try {
+      plugin.install(this._stage, options)
+    } catch (err) {
+      // Best-effort cleanup on failed install
+      try {
+        plugin.uninstall(this._stage)
+      } catch {
+        // ignore cleanup errors
+      }
+      throw err
+    }
     this._plugins.set(plugin.name, plugin)
   }
 
@@ -30,8 +40,12 @@ export class PluginRegistry {
   uninstall(name: string): void {
     const plugin = this._plugins.get(name)
     if (plugin === undefined) return
-    plugin.uninstall(this._stage)
     this._plugins.delete(name)
+    try {
+      plugin.uninstall(this._stage)
+    } catch (err) {
+      console.error(`[nexvas:registry] Failed to uninstall plugin "${name}":`, err)
+    }
   }
 
   has(name: string): boolean {

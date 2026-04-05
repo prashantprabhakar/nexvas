@@ -16,6 +16,7 @@ export class EventSystem {
 
   private _stageHandlers = new Map<string, Set<StageEventHandler<never>>>()
   private _lastHovered: BaseObject | null = null
+  private _canvasRect: DOMRect | null = null
 
   // Bound listeners stored so they can be removed in destroy()
   private _boundPointerDown: (e: PointerEvent) => void
@@ -75,7 +76,30 @@ export class EventSystem {
   }
 
   emitStage<K extends keyof StageEventMap>(event: K, data: StageEventMap[K]): void {
-    this._stageHandlers.get(event)?.forEach((h) => (h as StageEventHandler<K>)(data))
+    const handlers = this._stageHandlers.get(event)
+    if (!handlers) return
+    // Snapshot handlers before iterating (NV-007: prevents mid-dispatch additions firing).
+    // Check stopped after each handler (NV-025: makes stopPropagation() work for stage events).
+    for (const h of [...handlers]) {
+      ;(h as StageEventHandler<K>)(data)
+      if ((data as { stopped?: boolean }).stopped) break
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Canvas rect caching
+  // ---------------------------------------------------------------------------
+
+  private _getCanvasRect(): DOMRect {
+    if (this._canvasRect === null) {
+      this._canvasRect = this._canvas.getBoundingClientRect()
+    }
+    return this._canvasRect
+  }
+
+  /** Invalidate the cached canvas bounding rect. Call after the canvas moves in the page layout. */
+  invalidateRect(): void {
+    this._canvasRect = null
   }
 
   // ---------------------------------------------------------------------------
@@ -100,7 +124,7 @@ export class EventSystem {
   private _makePointerPos(
     e: MouseEvent,
   ): Omit<CanvasPointerEvent, 'stopped' | 'stopPropagation' | 'originalEvent'> {
-    const rect = this._canvas.getBoundingClientRect()
+    const rect = this._getCanvasRect()
     const screenX = e.clientX - rect.left
     const screenY = e.clientY - rect.top
     const world = this._viewport.screenToWorld(screenX, screenY)
@@ -168,7 +192,7 @@ export class EventSystem {
 
   private _onWheel(e: WheelEvent): void {
     e.preventDefault()
-    const rect = this._canvas.getBoundingClientRect()
+    const rect = this._getCanvasRect()
     const screenX = e.clientX - rect.left
     const screenY = e.clientY - rect.top
     const world = this._viewport.screenToWorld(screenX, screenY)
@@ -187,7 +211,7 @@ export class EventSystem {
   // ---------------------------------------------------------------------------
 
   private _makeTouchCanvasEvent(touch: Touch, native: TouchEvent): CanvasPointerEvent {
-    const rect = this._canvas.getBoundingClientRect()
+    const rect = this._getCanvasRect()
     const screenX = touch.clientX - rect.left
     const screenY = touch.clientY - rect.top
     const world = this._viewport.screenToWorld(screenX, screenY)
@@ -206,7 +230,7 @@ export class EventSystem {
   private _onTouchStart(e: TouchEvent): void {
     if (e.touches.length !== 1) return
     const touch = e.touches[0]!
-    const rect = this._canvas.getBoundingClientRect()
+    const rect = this._getCanvasRect()
     this._touchStartTime = performance.now()
     this._touchStartX = touch.clientX - rect.left
     this._touchStartY = touch.clientY - rect.top
@@ -220,7 +244,7 @@ export class EventSystem {
 
     // A tap must be short (< 250ms) and nearly stationary (< 10px movement).
     if (duration > 250) return
-    const rect = this._canvas.getBoundingClientRect()
+    const rect = this._getCanvasRect()
     const endX = touch.clientX - rect.left
     const endY = touch.clientY - rect.top
     const dx = endX - this._touchStartX

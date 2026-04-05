@@ -196,6 +196,37 @@ describe('Stage', () => {
     expect(bb.height).toBe(100)
   })
 
+  describe('NV-032 Stage.find() and findByType()', () => {
+    it('find() returns objects matching predicate', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r = new Rect({ x: 0, y: 0, width: 50, height: 50, name: 'myRect' })
+      const c = new Circle({ x: 100, y: 100, width: 50, height: 50, name: 'myCircle' })
+      layer.add(r).add(c)
+      const found = stage.find((obj) => obj.name === 'myRect')
+      expect(found).toHaveLength(1)
+      expect(found[0]).toBe(r)
+    })
+
+    it('findByType() returns only objects of that type', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      layer.add(new Rect({ x: 0, y: 0, width: 10, height: 10 }))
+      layer.add(new Rect({ x: 10, y: 10, width: 10, height: 10 }))
+      layer.add(new Circle({ x: 50, y: 50, width: 20, height: 20 }))
+      const rects = stage.findByType('Rect')
+      expect(rects).toHaveLength(2)
+      const circles = stage.findByType('Circle')
+      expect(circles).toHaveLength(1)
+    })
+
+    it('find() returns empty array when nothing matches', () => {
+      const { stage } = makeStage()
+      stage.addLayer()
+      expect(stage.find(() => false)).toHaveLength(0)
+    })
+  })
+
   describe('object:added / object:removed events', () => {
     it('emits object:added when an object is added to a stage-owned layer', () => {
       const { stage } = makeStage()

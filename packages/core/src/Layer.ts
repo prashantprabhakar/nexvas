@@ -64,10 +64,27 @@ export class Layer {
 
   clear(): this {
     for (const obj of this._objects) {
-      obj.parent = null
+      obj.destroy()
       this._onObjectMutation?.('removed', obj)
     }
     this._objects = []
+    return this
+  }
+
+  /**
+   * Remove an object from the layer. Throws if the object is not in this layer.
+   * Use `remove()` for a silent no-op if the object might not be present.
+   */
+  strictRemove(object: BaseObject): this {
+    const index = this._objects.indexOf(object)
+    if (index === -1) {
+      throw new Error(
+        `[nexvas:layer] strictRemove: object "${object.id}" is not in layer "${this.id}".`,
+      )
+    }
+    this._objects.splice(index, 1)
+    object.parent = null
+    this._onObjectMutation?.('removed', object)
     return this
   }
 
@@ -130,7 +147,7 @@ export class Layer {
       if (obj instanceof Group) {
         const hit = obj.hitTestChild(worldX, worldY, tolerance)
         if (hit !== null) return hit
-      } else if (obj.hitTest(worldX, worldY, tolerance)) {
+      } else if (obj.hitTest(worldX, worldY, obj.hitTolerance)) {
         return obj
       }
     }
@@ -157,7 +174,11 @@ export class Layer {
     for (const obj of this._objects) {
       if (!obj.visible) continue
       if (viewportWorld !== null && !obj.getWorldBoundingBox().intersects(viewportWorld)) continue
-      obj.render(ctx)
+      try {
+        obj.render(ctx)
+      } catch (err) {
+        console.error(`[nexvas:layer] Render error in object "${obj.id}" (${obj.getType()}):`, err)
+      }
     }
   }
 

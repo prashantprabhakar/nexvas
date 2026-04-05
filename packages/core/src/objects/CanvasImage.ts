@@ -39,6 +39,8 @@ export interface ImageProps extends BaseObjectProps {
    * schedule a redraw. Pass `() => stage.markDirty()`.
    */
   onLoad?: () => void
+  /** Callback invoked when image loading fails with the error message. */
+  onLoadError?: (message: string) => void
 }
 
 /** Raster image object (PNG, JPEG, WebP). Loaded via URL and decoded by CanvasKit. */
@@ -47,10 +49,12 @@ export class CanvasImage extends BaseObject {
   crop: { x: number; y: number; width: number; height: number } | null
   objectFit: 'fill' | 'contain' | 'cover'
   onLoad: (() => void) | null
+  onLoadError: ((message: string) => void) | null
 
   private _skImage: SkImage | null = null
   private _loadingSrc = ''
   private _loading = false
+  private _loadGeneration = 0
 
   constructor(props: ImageProps = {}) {
     super(props)
@@ -58,6 +62,7 @@ export class CanvasImage extends BaseObject {
     this.crop = props.crop ?? null
     this.objectFit = props.objectFit ?? 'fill'
     this.onLoad = props.onLoad ?? null
+    this.onLoadError = props.onLoadError ?? null
   }
 
   getType(): string {
@@ -65,29 +70,47 @@ export class CanvasImage extends BaseObject {
   }
 
   private _startLoad(ck: ImageCK): void {
-    if (this._loading || this._loadingSrc === this.src) return
+    // Skip only if this exact src is already loading (deduplicate)
+    if (this._loadingSrc === this.src && this._loading) return
+
+    const generation = ++this._loadGeneration
     this._loading = true
     this._loadingSrc = this.src
 
-    void fetch(this.src)
-      .then((r) => r.arrayBuffer())
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30_000)
+
+    void fetch(this.src, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.arrayBuffer()
+      })
       .then((buf) => {
+        if (generation !== this._loadGeneration) return // stale — newer load in flight
         const img = ck.MakeImageFromEncoded(new Uint8Array(buf))
         if (img) {
           this._skImage?.delete()
           this._skImage = img
           this.onLoad?.()
         } else {
-          console.warn(`[nexvas] CanvasImage: CanvasKit could not decode image "${this.src}"`)
+          console.warn(`[nexvas:image] CanvasKit could not decode image "${this.src}"`)
+          this.onLoadError?.(`CanvasKit could not decode image "${this.src}"`)
         }
       })
       .catch((err: unknown) => {
-        console.warn(
-          `[nexvas] CanvasImage: failed to load "${this.src}": ${err instanceof Error ? err.message : String(err)}`,
-        )
+        if (generation !== this._loadGeneration) return
+        const msg = err instanceof Error ? err.message : String(err)
+        if ((err as { name?: string }).name === 'AbortError') {
+          console.warn(`[nexvas:image] Load timed out for "${this.src}"`)
+          this.onLoadError?.(`Load timed out for "${this.src}"`)
+        } else {
+          console.warn(`[nexvas:image] Failed to load "${this.src}": ${msg}`)
+          this.onLoadError?.(msg)
+        }
       })
       .finally(() => {
-        this._loading = false
+        clearTimeout(timeoutId)
+        if (generation === this._loadGeneration) this._loading = false
       })
   }
 
@@ -191,7 +214,15 @@ export class CanvasImage extends BaseObject {
   static fromJSON(json: ObjectJSON): CanvasImage {
     const obj = new CanvasImage()
     obj.applyBaseJSON(json)
-    if (json['src'] !== undefined) obj.src = json['src'] as string
+    if (json['src'] !== undefined) {
+      const src = String(json['src'])
+      // Block javascript: URIs — they are never legitimate image sources
+      if (/^javascript:/i.test(src)) {
+        console.warn(`[nexvas:image] fromJSON: rejected unsafe src "${src.slice(0, 64)}"`)
+      } else {
+        obj.src = src
+      }
+    }
     if (json['crop'] !== undefined) {
       obj.crop = (json['crop'] as { x: number; y: number; width: number; height: number }) ?? null
     }

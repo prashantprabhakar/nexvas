@@ -149,12 +149,24 @@ export abstract class BaseObject {
   }
 
   /**
-   * Axis-aligned bounding box in local space (before world transform).
-   * Subclasses may override for non-rectangular shapes.
+   * Axis-aligned bounding box in local (parent) space, **before** the world
+   * transform is applied.
+   *
+   * Every concrete object type MUST implement this method. There is no default
+   * because the shape of the bounding box is intrinsic to the object's geometry:
+   *
+   * - Rectangularly-positioned objects (Rect, Circle, Text, Image) return
+   *   `new BoundingBox(0, 0, this.width, this.height)` — the transform (x, y,
+   *   rotation, scale) is separate and applied by `getWorldBoundingBox()`.
+   * - Geometry-defined objects (Line, Path, connectors) compute the bbox
+   *   directly from their geometry data (endpoints, path `d` string, waypoints)
+   *   without relying on `x / y / width / height`.
+   *
+   * Making this abstract guarantees that authors of new object types must
+   * consciously declare how their bounding box is computed, preventing silent
+   * 0×0 fallbacks that cause culling and hit-testing failures (NV-027).
    */
-  getLocalBoundingBox(): BoundingBox {
-    return new BoundingBox(0, 0, this.width, this.height)
-  }
+  abstract getLocalBoundingBox(): BoundingBox
 
   /**
    * Axis-aligned bounding box in world space. Result is cached; cleared on any spatial mutation.

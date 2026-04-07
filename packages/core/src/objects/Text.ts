@@ -1,4 +1,5 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
+import { BoundingBox } from '../math/BoundingBox.js'
 import { colorToCK, type PaintCK } from '../renderer/paint.js'
 import type { RenderContext, ObjectJSON } from '../types.js'
 
@@ -111,6 +112,10 @@ export class Text extends BaseObject {
 
   getType(): string {
     return 'Text'
+  }
+
+  getLocalBoundingBox(): BoundingBox {
+    return new BoundingBox(0, 0, this.width, this.height)
   }
 
   /** Invalidate the cached paragraph (call after changing text or style props). */

@@ -134,4 +134,47 @@ describe('Group', () => {
     expect(g.children).toHaveLength(0)
     expect(r.parent).toBeNull()
   })
+
+  // NV-027 — getLocalBoundingBox must be computed from children, not from
+  // Group's own x/y/width/height fields (which are semantically meaningless
+  // for a Group that simply contains other objects).
+  describe('getLocalBoundingBox (NV-027)', () => {
+    it('returns zero-size box for an empty group', () => {
+      const g = new Group()
+      const bbox = g.getLocalBoundingBox()
+      expect(bbox.width).toBe(0)
+      expect(bbox.height).toBe(0)
+    })
+
+    it('returns the union of children local bboxes', () => {
+      const g = new Group()
+      g.add(new Rect({ x: 10, y: 10, width: 50, height: 30 }))
+      g.add(new Rect({ x: 70, y: 20, width: 40, height: 20 }))
+      // children span x∈[10,110], y∈[10,40] in group-local space
+      const bbox = g.getLocalBoundingBox()
+      expect(bbox.x).toBe(10)
+      expect(bbox.y).toBe(10)
+      expect(bbox.right).toBe(110)
+      expect(bbox.bottom).toBe(40)
+    })
+
+    it('ignores invisible children', () => {
+      const g = new Group()
+      g.add(new Rect({ x: 10, y: 10, width: 50, height: 30 }))
+      g.add(new Rect({ x: 200, y: 200, width: 50, height: 50, visible: false }))
+      const bbox = g.getLocalBoundingBox()
+      expect(bbox.right).toBeLessThan(200)
+    })
+
+    it('accounts for child local transforms', () => {
+      const g = new Group()
+      // Child is offset by (20, 30) in the group's local space
+      g.add(new Rect({ x: 20, y: 30, width: 60, height: 40 }))
+      const bbox = g.getLocalBoundingBox()
+      expect(bbox.x).toBe(20)
+      expect(bbox.y).toBe(30)
+      expect(bbox.right).toBe(80)
+      expect(bbox.bottom).toBe(70)
+    })
+  })
 })

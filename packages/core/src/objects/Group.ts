@@ -83,6 +83,27 @@ export class Group extends BaseObject {
   // Transform & bounds
   // ---------------------------------------------------------------------------
 
+  /**
+   * Local bounding box of this group: the union of all visible children's
+   * bounding boxes expressed in the group's own coordinate space.
+   *
+   * Unlike `getWorldBoundingBox()` (which operates in world space), this
+   * method applies only each child's local transform — leaving the group's
+   * own x/y/rotation out of the result. That keeps the contract consistent
+   * with how all other objects define their local bbox (shape at the origin,
+   * transform applied separately by `getWorldBoundingBox()`).
+   */
+  getLocalBoundingBox(): BoundingBox {
+    if (this._children.length === 0) return new BoundingBox(0, 0, 0, 0)
+    let result: BoundingBox | null = null
+    for (const child of this._children) {
+      if (!child.visible) continue
+      const childBB = child.getLocalBoundingBox().transform(child.getLocalTransform())
+      result = result === null ? childBB : result.union(childBB)
+    }
+    return result ?? new BoundingBox(0, 0, 0, 0)
+  }
+
   /** Group's world bbox is the union of all visible children's world bounding boxes. */
   protected override _computeWorldBoundingBox(): BoundingBox {
     if (this._children.length === 0) {

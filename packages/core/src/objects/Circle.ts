@@ -1,4 +1,5 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
+import { BoundingBox } from '../math/BoundingBox.js'
 import { makeFillPaint, makeStrokePaint, type PaintCK } from '../renderer/paint.js'
 import type { RenderContext, ObjectJSON } from '../types.js'
 
@@ -71,6 +72,10 @@ export class Circle extends BaseObject {
 
   getType(): string {
     return 'Circle'
+  }
+
+  getLocalBoundingBox(): BoundingBox {
+    return new BoundingBox(0, 0, this.width, this.height)
   }
 
   render(ctx: RenderContext): void {

@@ -128,4 +128,15 @@ describe('Rect', () => {
     expect(bb.width).toBeCloseTo(80)
     expect(bb.height).toBeCloseTo(40)
   })
+
+  // NV-027 — each concrete object must declare its own local bbox explicitly
+  it('getLocalBoundingBox returns (0, 0, width, height) in local space', () => {
+    const rect = new Rect({ x: 50, y: 100, width: 80, height: 40 })
+    const bb = rect.getLocalBoundingBox()
+    // local bbox origin is always 0,0 — position (x,y) is part of the transform, not the bbox
+    expect(bb.x).toBe(0)
+    expect(bb.y).toBe(0)
+    expect(bb.width).toBe(80)
+    expect(bb.height).toBe(40)
+  })
 })

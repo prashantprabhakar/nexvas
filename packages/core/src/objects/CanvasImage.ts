@@ -1,4 +1,5 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
+import { BoundingBox } from '../math/BoundingBox.js'
 import type { RenderContext, ObjectJSON } from '../types.js'
 import type { PaintCK } from '../renderer/paint.js'
 
@@ -67,6 +68,10 @@ export class CanvasImage extends BaseObject {
 
   getType(): string {
     return 'Image'
+  }
+
+  getLocalBoundingBox(): BoundingBox {
+    return new BoundingBox(0, 0, this.width, this.height)
   }
 
   private _startLoad(ck: ImageCK): void {

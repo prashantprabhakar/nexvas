@@ -85,14 +85,40 @@ interface TextCK extends PaintCK {
 
 /** Single or multi-line text object. Rendered via CanvasKit's paragraph API for proper shaping. */
 export class Text extends BaseObject {
-  text: string
-  fontFamily: string
-  fontSize: number
-  fontWeight: number
-  fontStyle: 'normal' | 'italic'
-  align: TextAlign
-  baseline: TextBaseline
-  lineHeight: number
+  // Backing fields — mutated only through setters so the paragraph cache is
+  // automatically invalidated on every property change (NV-014).
+  private _text: string = ''
+  private _fontFamily: string = 'Noto Sans'
+  private _fontSize: number = 16
+  private _fontWeight: number = 400
+  private _fontStyle: 'normal' | 'italic' = 'normal'
+  private _align: TextAlign = 'left'
+  private _baseline: TextBaseline = 'top'
+  private _lineHeight: number = 1.2
+
+  get text(): string { return this._text }
+  set text(v: string) { this._text = v; this.invalidate() }
+
+  get fontFamily(): string { return this._fontFamily }
+  set fontFamily(v: string) { this._fontFamily = v; this.invalidate() }
+
+  get fontSize(): number { return this._fontSize }
+  set fontSize(v: number) { this._fontSize = v; this.invalidate() }
+
+  get fontWeight(): number { return this._fontWeight }
+  set fontWeight(v: number) { this._fontWeight = v; this.invalidate() }
+
+  get fontStyle(): 'normal' | 'italic' { return this._fontStyle }
+  set fontStyle(v: 'normal' | 'italic') { this._fontStyle = v; this.invalidate() }
+
+  get align(): TextAlign { return this._align }
+  set align(v: TextAlign) { this._align = v; this.invalidate() }
+
+  get baseline(): TextBaseline { return this._baseline }
+  set baseline(v: TextBaseline) { this._baseline = v; this.invalidate() }
+
+  get lineHeight(): number { return this._lineHeight }
+  set lineHeight(v: number) { this._lineHeight = v; this.invalidate() }
 
   /** Cached paragraph — invalidated when text or style properties change. */
   private _paragraph: SkParagraph | null = null
@@ -100,14 +126,16 @@ export class Text extends BaseObject {
 
   constructor(props: TextProps = {}) {
     super(props)
-    this.text = props.text ?? ''
-    this.fontFamily = props.fontFamily ?? 'Noto Sans'
-    this.fontSize = props.fontSize ?? 16
-    this.fontWeight = props.fontWeight ?? 400
-    this.fontStyle = props.fontStyle ?? 'normal'
-    this.align = props.align ?? 'left'
-    this.baseline = props.baseline ?? 'top'
-    this.lineHeight = props.lineHeight ?? 1.2
+    // Assign directly to backing fields to avoid triggering invalidate() during
+    // construction (paragraph is already null at this point).
+    this._text = props.text ?? ''
+    this._fontFamily = props.fontFamily ?? 'Noto Sans'
+    this._fontSize = props.fontSize ?? 16
+    this._fontWeight = props.fontWeight ?? 400
+    this._fontStyle = props.fontStyle ?? 'normal'
+    this._align = props.align ?? 'left'
+    this._baseline = props.baseline ?? 'top'
+    this._lineHeight = props.lineHeight ?? 1.2
   }
 
   getType(): string {

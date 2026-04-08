@@ -76,4 +76,88 @@ describe('Text', () => {
     text.render(ctx)
     expect(canvas.calls.length).toBeGreaterThan(callsAfterFirst)
   })
+
+  describe('auto-invalidation on property set (NV-014)', () => {
+    function countBuilds(ctx: RenderContext, ck: ReturnType<typeof createMockCK>) {
+      const buildSpy = vi.spyOn(ck.ParagraphBuilder, 'MakeFromFontProvider')
+      return buildSpy
+    }
+
+    it('rebuilds paragraph when .text is set without calling invalidate()', () => {
+      const { ctx, ck } = makeCtx(true)
+      const spy = countBuilds(ctx, ck)
+      const text = new Text({ text: 'Hello', x: 0, y: 0, width: 200, height: 50 })
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(1)
+      text.text = 'World'
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(2)
+    })
+
+    it('rebuilds paragraph when .fontSize is set without calling invalidate()', () => {
+      const { ctx, ck } = makeCtx(true)
+      const spy = countBuilds(ctx, ck)
+      const text = new Text({ text: 'Hi', x: 0, y: 0, width: 200, height: 50 })
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(1)
+      text.fontSize = 32
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(2)
+    })
+
+    it('rebuilds paragraph when .fontFamily is set without calling invalidate()', () => {
+      const { ctx, ck } = makeCtx(true)
+      const spy = countBuilds(ctx, ck)
+      const text = new Text({ text: 'Hi', x: 0, y: 0, width: 200, height: 50 })
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(1)
+      text.fontFamily = 'Roboto'
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(2)
+    })
+
+    it('rebuilds paragraph when .fontWeight is set without calling invalidate()', () => {
+      const { ctx, ck } = makeCtx(true)
+      const spy = countBuilds(ctx, ck)
+      const text = new Text({ text: 'Hi', x: 0, y: 0, width: 200, height: 50 })
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(1)
+      text.fontWeight = 700
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(2)
+    })
+
+    it('rebuilds paragraph when .fontStyle is set without calling invalidate()', () => {
+      const { ctx, ck } = makeCtx(true)
+      const spy = countBuilds(ctx, ck)
+      const text = new Text({ text: 'Hi', x: 0, y: 0, width: 200, height: 50 })
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(1)
+      text.fontStyle = 'italic'
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(2)
+    })
+
+    it('rebuilds paragraph when .align is set without calling invalidate()', () => {
+      const { ctx, ck } = makeCtx(true)
+      const spy = countBuilds(ctx, ck)
+      const text = new Text({ text: 'Hi', x: 0, y: 0, width: 200, height: 50 })
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(1)
+      text.align = 'center'
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(2)
+    })
+
+    it('rebuilds paragraph when .lineHeight is set without calling invalidate()', () => {
+      const { ctx, ck } = makeCtx(true)
+      const spy = countBuilds(ctx, ck)
+      const text = new Text({ text: 'Hi', x: 0, y: 0, width: 200, height: 50 })
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(1)
+      text.lineHeight = 1.5
+      text.render(ctx)
+      expect(spy).toHaveBeenCalledTimes(2)
+    })
+  })
 })

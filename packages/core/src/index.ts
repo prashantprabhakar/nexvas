@@ -46,6 +46,7 @@ export type {
   SceneJSON,
   LayerJSON,
   ObjectJSON,
+  ObjectDeserializer,
   ViewportState,
   StageInterface,
   StageEventMap,

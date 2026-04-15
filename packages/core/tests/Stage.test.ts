@@ -3,7 +3,45 @@ import { Stage } from '../src/Stage.js'
 import { Rect } from '../src/objects/Rect.js'
 import { Circle } from '../src/objects/Circle.js'
 import { Group } from '../src/objects/Group.js'
+import { BaseObject } from '../src/objects/BaseObject.js'
+import { BoundingBox } from '../src/math/BoundingBox.js'
 import { createMockCK, createMockHTMLCanvas } from './__mocks__/canvaskit.js'
+import type { ObjectJSON, RenderContext } from '../src/types.js'
+
+// ---------------------------------------------------------------------------
+// Minimal custom object type used by NV-004 tests
+// ---------------------------------------------------------------------------
+
+class CustomNode extends BaseObject {
+  customProp: string
+
+  constructor(props: { customProp?: string } = {}) {
+    super()
+    this.customProp = props.customProp ?? ''
+  }
+
+  getType(): string {
+    return 'CustomNode'
+  }
+
+  getLocalBoundingBox(): BoundingBox {
+    return new BoundingBox(0, 0, this.width, this.height)
+  }
+
+  render(_ctx: RenderContext): void {
+    // no-op in tests
+  }
+
+  toJSON(): ObjectJSON {
+    return { ...super.toJSON(), customProp: this.customProp }
+  }
+
+  static fromJSON(json: ObjectJSON): CustomNode {
+    const node = new CustomNode({ customProp: json['customProp'] as string | undefined })
+    node.applyBaseJSON(json)
+    return node
+  }
+}
 
 function makeStage() {
   const ck = createMockCK()
@@ -224,6 +262,97 @@ describe('Stage', () => {
       const { stage } = makeStage()
       stage.addLayer()
       expect(stage.find(() => false)).toHaveLength(0)
+    })
+  })
+
+  describe('NV-004 registerObject() — custom type deserialization', () => {
+    it('registerObject allows loadJSON to restore custom types', () => {
+      const { stage } = makeStage()
+      stage.registerObject('CustomNode', CustomNode.fromJSON)
+
+      const layer = stage.addLayer({ name: 'Main' })
+      const node = new CustomNode({ customProp: 'hello' })
+      layer.add(node)
+      const json = stage.toJSON()
+
+      const { stage: stage2 } = makeStage()
+      stage2.registerObject('CustomNode', CustomNode.fromJSON)
+      stage2.loadJSON(json)
+
+      const objs = stage2.layers[0]!.objects
+      expect(objs).toHaveLength(1)
+      expect(objs[0]!.getType()).toBe('CustomNode')
+      expect((objs[0] as CustomNode).customProp).toBe('hello')
+    })
+
+    it('loadJSON throws on unknown type when no deserializer is registered', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      layer.add(new CustomNode())
+      const json = stage.toJSON()
+
+      const { stage: stage2 } = makeStage()
+      // No registerObject call — should throw
+      expect(() => stage2.loadJSON(json)).toThrow(/unknown object type "CustomNode"/)
+    })
+
+    it('registerObject overwrites a previous deserializer for the same type', () => {
+      const { stage } = makeStage()
+      const first = vi.fn().mockImplementation(CustomNode.fromJSON)
+      const second = vi.fn().mockImplementation(CustomNode.fromJSON)
+
+      stage.registerObject('CustomNode', first)
+      stage.registerObject('CustomNode', second)
+
+      const layer = stage.addLayer()
+      layer.add(new CustomNode())
+      const json = stage.toJSON()
+
+      stage.loadJSON(json)
+      expect(second).toHaveBeenCalledOnce()
+      expect(first).not.toHaveBeenCalled()
+    })
+
+    it('custom types inside a Group are deserialized correctly', () => {
+      const { stage } = makeStage()
+      stage.registerObject('CustomNode', CustomNode.fromJSON)
+
+      const layer = stage.addLayer()
+      const group = new Group({ x: 0, y: 0, width: 200, height: 200 })
+      group.add(new CustomNode({ customProp: 'nested' }))
+      layer.add(group)
+      const json = stage.toJSON()
+
+      const { stage: stage2 } = makeStage()
+      stage2.registerObject('CustomNode', CustomNode.fromJSON)
+      stage2.loadJSON(json)
+
+      const restoredGroup = stage2.layers[0]!.objects[0] as Group
+      expect(restoredGroup.getType()).toBe('Group')
+      expect(restoredGroup.children).toHaveLength(1)
+      expect(restoredGroup.children[0]!.getType()).toBe('CustomNode')
+      expect((restoredGroup.children[0] as CustomNode).customProp).toBe('nested')
+    })
+
+    it('mixed built-in and custom types in one layer all round-trip correctly', () => {
+      const { stage } = makeStage()
+      stage.registerObject('CustomNode', CustomNode.fromJSON)
+
+      const layer = stage.addLayer()
+      layer.add(new Rect({ x: 0, y: 0, width: 50, height: 50, name: 'r' }))
+      layer.add(new CustomNode({ customProp: 'c' }))
+      const json = stage.toJSON()
+
+      const { stage: stage2 } = makeStage()
+      stage2.registerObject('CustomNode', CustomNode.fromJSON)
+      stage2.loadJSON(json)
+
+      const objs = stage2.layers[0]!.objects
+      expect(objs).toHaveLength(2)
+      expect(objs[0]!.getType()).toBe('Rect')
+      expect(objs[0]!.name).toBe('r')
+      expect(objs[1]!.getType()).toBe('CustomNode')
+      expect((objs[1] as CustomNode).customProp).toBe('c')
     })
   })
 

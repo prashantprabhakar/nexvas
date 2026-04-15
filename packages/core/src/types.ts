@@ -4,6 +4,12 @@ import type { Viewport } from './Viewport.js'
 import type { FontManager } from './FontManager.js'
 import type { BaseObject } from './objects/BaseObject.js'
 
+/**
+ * A function that deserializes a plain JSON object into a typed scene object.
+ * Passed to {@link StageInterface.registerObject} to support custom object types in `loadJSON()`.
+ */
+export type ObjectDeserializer = (json: ObjectJSON) => BaseObject
+
 // ---------------------------------------------------------------------------
 // Serialization
 // ---------------------------------------------------------------------------
@@ -228,6 +234,18 @@ export interface StageInterface {
   find(predicate: (obj: BaseObject) => boolean): BaseObject[]
   /** Find all objects of a specific type string (e.g. "Rect", "Circle"). */
   findByType(type: string): BaseObject[]
+  /**
+   * Register a custom object type for deserialization.
+   * Once registered, `loadJSON()` will use the provided deserializer whenever
+   * it encounters an object whose `type` field matches `typeName`.
+   *
+   * @example
+   * ```ts
+   * stage.registerObject('Node', (json) => NodeObject.fromJSON(json))
+   * stage.loadJSON(savedScene)
+   * ```
+   */
+  registerObject(typeName: string, deserializer: ObjectDeserializer): void
 }
 
 // ---------------------------------------------------------------------------

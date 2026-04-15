@@ -1,7 +1,7 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
 import { BoundingBox } from '../math/BoundingBox.js'
 import { objectFromJSON } from './objectFromJSON.js'
-import type { RenderContext, ObjectJSON, ObjectEventMap } from '../types.js'
+import type { RenderContext, ObjectJSON, ObjectEventMap, ObjectDeserializer } from '../types.js'
 
 interface SkCanvas {
   save(): number
@@ -216,13 +216,16 @@ export class Group extends BaseObject {
     }
   }
 
-  static fromJSON(json: ObjectJSON): Group {
+  static fromJSON(
+    json: ObjectJSON,
+    registry?: ReadonlyMap<string, ObjectDeserializer>,
+  ): Group {
     const obj = new Group({ clip: json['clip'] === true })
     obj.applyBaseJSON(json)
     const children = json['children']
     if (Array.isArray(children)) {
       for (const childJson of children as ObjectJSON[]) {
-        obj.add(objectFromJSON(childJson))
+        obj.add(objectFromJSON(childJson, registry))
       }
     }
     return obj

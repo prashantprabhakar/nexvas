@@ -12,6 +12,7 @@ import type {
   SceneJSON,
   StageEventMap,
   StageInterface,
+  ObjectDeserializer,
 } from './types.js'
 import type { BaseObject } from './objects/BaseObject.js'
 
@@ -90,6 +91,7 @@ export class Stage implements StageInterface {
   private _surface: SkSurface | null = null
   private _boundContextLost: (e: Event) => void
   private _boundContextRestored: () => void
+  private _objectRegistry = new Map<string, ObjectDeserializer>()
 
   constructor(options: StageOptions) {
     this.id = `stage_${Date.now().toString(36)}`
@@ -369,6 +371,24 @@ export class Stage implements StageInterface {
   // Serialization
   // ---------------------------------------------------------------------------
 
+  /**
+   * Register a custom object type for deserialization.
+   * Once registered, `loadJSON()` will call `deserializer` whenever it encounters
+   * an object whose `type` field equals `typeName`.
+   *
+   * Must be called before `loadJSON()` for the registration to take effect.
+   * Registering the same `typeName` twice replaces the previous deserializer.
+   *
+   * @example
+   * ```ts
+   * stage.registerObject('Node', (json) => NodeObject.fromJSON(json))
+   * stage.loadJSON(savedScene)
+   * ```
+   */
+  registerObject(typeName: string, deserializer: ObjectDeserializer): void {
+    this._objectRegistry.set(typeName, deserializer)
+  }
+
   toJSON(): SceneJSON {
     return {
       version: '1.0.0',
@@ -393,7 +413,7 @@ export class Stage implements StageInterface {
       this.removeLayer(layer)
     }
     for (const layerJson of json.layers) {
-      const layer = Layer.fromJSON(layerJson)
+      const layer = Layer.fromJSON(layerJson, this._objectRegistry)
       this._layers.push(layer)
     }
     this.markDirty()

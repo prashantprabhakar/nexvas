@@ -3,7 +3,7 @@ import type { BaseObject } from './objects/BaseObject.js'
 import { Group } from './objects/Group.js'
 import { objectFromJSON } from './objects/objectFromJSON.js'
 import { BoundingBox } from './math/BoundingBox.js'
-import type { RenderContext, LayerJSON } from './types.js'
+import type { RenderContext, LayerJSON, ObjectDeserializer } from './types.js'
 
 interface RBushItem {
   minX: number
@@ -283,12 +283,18 @@ export class Layer {
 
   /**
    * Restore a layer from its serialized JSON representation.
-   * All built-in object types are supported. Unknown types throw.
+   * All built-in object types are supported. Custom types registered via
+   * {@link Stage.registerObject} are resolved via the optional `registry` argument.
+   *
+   * @param registry - Optional map of custom type names to deserializer functions.
    */
-  static fromJSON(json: LayerJSON): Layer {
+  static fromJSON(
+    json: LayerJSON,
+    registry?: ReadonlyMap<string, ObjectDeserializer>,
+  ): Layer {
     const layer = new Layer({ id: json.id, name: json.name, visible: json.visible, locked: json.locked })
     for (const objJson of json.objects) {
-      layer.add(objectFromJSON(objJson))
+      layer.add(objectFromJSON(objJson, registry))
     }
     return layer
   }

@@ -23,7 +23,7 @@ interface SelectionCK {
   Paint: new () => SkPaint
   Color4f(r: number, g: number, b: number, a: number): Float32Array
   PaintStyle: { Fill: unknown; Stroke: unknown }
-  PathEffect: { MakeDash(intervals: number[], phase: number): unknown }
+  PathEffect: { MakeDash(intervals: number[], phase: number): SkPathEffect }
   LTRBRect(l: number, t: number, r: number, b: number): Float32Array
 }
 
@@ -33,7 +33,11 @@ interface SkPaint {
   setAntiAlias(aa: boolean): void
   setStrokeWidth(w: number): void
   setAlphaf(a: number): void
-  setPathEffect(e: unknown): void
+  setPathEffect(e: SkPathEffect | null): void
+  delete(): void
+}
+
+interface SkPathEffect {
   delete(): void
 }
 
@@ -116,9 +120,20 @@ export class SelectionPlugin implements Plugin {
   private _dragState: DragState | null = null
   private _changeHandlers: Set<ChangeHandler> = new Set()
 
-  // Cached handle paints — created lazily on first draw, deleted on uninstall
+  // Cached paints — created lazily on first draw, deleted on uninstall.
+  // Zero WASM allocs per frame: all paints are reused; only stroke widths
+  // (cheap setters, no allocation) and path effects (recreated only when
+  // viewport scale changes) are updated between frames.
   private _handleFillPaint: SkPaint | null = null
   private _handleStrokePaint: SkPaint | null = null
+  private _borderPaint: SkPaint | null = null
+  private _rotLinePaint: SkPaint | null = null
+  private _marqueePaint: SkPaint | null = null
+  // Path effects — WASM objects; recreated only when invScale changes.
+  private _borderDashEffect: SkPathEffect | null = null
+  private _marqueeDashEffect: SkPathEffect | null = null
+  // Last recorded invScale so we know when to rebuild path effects.
+  private _lastInvScale = -1
 
   // Bound event handlers (stored for cleanup)
   private _onMouseDown: (e: CanvasPointerEvent) => void
@@ -180,6 +195,17 @@ export class SelectionPlugin implements Plugin {
     this._handleFillPaint = null
     this._handleStrokePaint?.delete()
     this._handleStrokePaint = null
+    this._borderPaint?.delete()
+    this._borderPaint = null
+    this._rotLinePaint?.delete()
+    this._rotLinePaint = null
+    this._marqueePaint?.delete()
+    this._marqueePaint = null
+    this._borderDashEffect?.delete()
+    this._borderDashEffect = null
+    this._marqueeDashEffect?.delete()
+    this._marqueeDashEffect = null
+    this._lastInvScale = -1
 
     this._selected.clear()
     this._dragState = null
@@ -544,17 +570,57 @@ export class SelectionPlugin implements Plugin {
   // Rendering
   // ---------------------------------------------------------------------------
 
-  private _ensureHandlePaints(ck: SelectionCK): void {
-    if (this._handleFillPaint !== null) return
+  /** Create all cached paint objects on first call. Safe to call every frame. */
+  private _ensurePaints(ck: SelectionCK): void {
+    if (this._handleFillPaint !== null) return // already initialised
     const color = this._options.selectionColor
+
     this._handleFillPaint = new ck.Paint()
     this._handleFillPaint.setStyle(ck.PaintStyle.Fill)
     this._handleFillPaint.setColor(ck.Color4f(1, 1, 1, 1))
     this._handleFillPaint.setAntiAlias(true)
+
     this._handleStrokePaint = new ck.Paint()
     this._handleStrokePaint.setStyle(ck.PaintStyle.Stroke)
     this._handleStrokePaint.setColor(ck.Color4f(color.r, color.g, color.b, color.a))
     this._handleStrokePaint.setAntiAlias(true)
+
+    this._borderPaint = new ck.Paint()
+    this._borderPaint.setStyle(ck.PaintStyle.Stroke)
+    this._borderPaint.setColor(ck.Color4f(color.r, color.g, color.b, color.a))
+    this._borderPaint.setAntiAlias(true)
+
+    this._rotLinePaint = new ck.Paint()
+    this._rotLinePaint.setStyle(ck.PaintStyle.Stroke)
+    this._rotLinePaint.setColor(ck.Color4f(color.r, color.g, color.b, color.a))
+    this._rotLinePaint.setAntiAlias(true)
+
+    this._marqueePaint = new ck.Paint()
+    this._marqueePaint.setStyle(ck.PaintStyle.Stroke)
+    this._marqueePaint.setColor(ck.Color4f(color.r, color.g, color.b, 0.8))
+    this._marqueePaint.setAntiAlias(true)
+  }
+
+  /**
+   * Update all scale-dependent paint properties. Called only when viewport
+   * scale changes, not on every frame. Path effects are WASM objects; this is
+   * the only place they are (re)allocated, keeping per-frame allocs at zero.
+   */
+  private _updateScaleDependentPaints(ck: SelectionCK, invScale: number): void {
+    this._borderPaint!.setStrokeWidth(1.5 * invScale)
+    this._rotLinePaint!.setStrokeWidth(1.5 * invScale)
+    this._handleStrokePaint!.setStrokeWidth(1.5 * invScale)
+    this._marqueePaint!.setStrokeWidth(invScale)
+
+    if (ck.PathEffect) {
+      this._borderDashEffect?.delete()
+      this._borderDashEffect = ck.PathEffect.MakeDash([5 * invScale, 3 * invScale], 0)
+      this._borderPaint!.setPathEffect(this._borderDashEffect)
+
+      this._marqueeDashEffect?.delete()
+      this._marqueeDashEffect = ck.PathEffect.MakeDash([4 * invScale, 4 * invScale], 0)
+      this._marqueePaint!.setPathEffect(this._marqueeDashEffect)
+    }
   }
 
   private _drawSelection(ctx: RenderContext): void {
@@ -562,26 +628,22 @@ export class SelectionPlugin implements Plugin {
     const ck = ctx.canvasKit as SelectionCK
     const canvas = ctx.skCanvas as SkCanvas
     const vp = ctx.viewport
-    const color = this._options.selectionColor
     // invScale keeps stroke widths and handle sizes constant in screen pixels regardless of zoom
     const invScale = 1 / vp.scale
 
-    this._ensureHandlePaints(ck)
+    this._ensurePaints(ck)
+
+    // Rebuild scale-dependent stroke widths and path effects only when zoom changes.
+    // Path effects are the only WASM allocations here; all paints are reused.
+    if (invScale !== this._lastInvScale) {
+      this._updateScaleDependentPaints(ck, invScale)
+      this._lastInvScale = invScale
+    }
 
     // Draw selection border for each selected object in world space
     for (const obj of this._selected) {
       const bb = obj.getWorldBoundingBox()
-
-      const borderPaint = new ck.Paint()
-      borderPaint.setStyle(ck.PaintStyle.Stroke)
-      borderPaint.setColor(ck.Color4f(color.r, color.g, color.b, color.a))
-      borderPaint.setAntiAlias(true)
-      borderPaint.setStrokeWidth(1.5 * invScale)
-      if (ck.PathEffect) {
-        borderPaint.setPathEffect(ck.PathEffect.MakeDash([5 * invScale, 3 * invScale], 0))
-      }
-      canvas.drawRect([bb.x, bb.y, bb.right, bb.bottom], borderPaint)
-      borderPaint.delete()
+      canvas.drawRect([bb.x, bb.y, bb.right, bb.bottom], this._borderPaint)
     }
 
     // Draw handles on combined world-space bounding box
@@ -593,13 +655,7 @@ export class SelectionPlugin implements Plugin {
     const rotOffset = ROT_HANDLE_OFFSET * invScale
 
     // Rotation handle line — from top-center to rotation handle position
-    const linePaint = new ck.Paint()
-    linePaint.setStyle(ck.PaintStyle.Stroke)
-    linePaint.setColor(ck.Color4f(color.r, color.g, color.b, color.a))
-    linePaint.setStrokeWidth(1.5 * invScale)
-    linePaint.setAntiAlias(true)
-    canvas.drawLine(cx, y, cx, y - rotOffset, linePaint)
-    linePaint.delete()
+    canvas.drawLine(cx, y, cx, y - rotOffset, this._rotLinePaint)
 
     const handles: Array<{ hx: number; hy: number; isRot: boolean }> = [
       { hx: x, hy: y, isRot: false },
@@ -617,9 +673,6 @@ export class SelectionPlugin implements Plugin {
     const hs = (HANDLE_SIZE / 2) * invScale
     const circleR = (HANDLE_SIZE / 2) * invScale
 
-    // Update scale-dependent stroke width on cached handle stroke paint
-    this._handleStrokePaint!.setStrokeWidth(1.5 * invScale)
-
     for (const { hx, hy, isRot } of handles) {
       if (isRot) {
         canvas.drawCircle(hx, hy, circleR, this._handleFillPaint)
@@ -634,19 +687,10 @@ export class SelectionPlugin implements Plugin {
     if (this._dragState?.type === 'marquee') {
       const { marqueeX, marqueeY, marqueeW, marqueeH } = this._dragState
       if (marqueeX !== undefined && marqueeW && marqueeH) {
-        const marqueePaint = new ck.Paint()
-        marqueePaint.setStyle(ck.PaintStyle.Stroke)
-        marqueePaint.setColor(ck.Color4f(color.r, color.g, color.b, 0.8))
-        marqueePaint.setStrokeWidth(1 * invScale)
-        marqueePaint.setAntiAlias(true)
-        if (ck.PathEffect) {
-          marqueePaint.setPathEffect(ck.PathEffect.MakeDash([4 * invScale, 4 * invScale], 0))
-        }
         canvas.drawRect(
           [marqueeX, marqueeY!, marqueeX + marqueeW, marqueeY! + marqueeH],
-          marqueePaint,
+          this._marqueePaint,
         )
-        marqueePaint.delete()
       }
     }
   }

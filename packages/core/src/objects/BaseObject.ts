@@ -60,23 +60,68 @@ export abstract class BaseObject {
   private _skewY: number = 0
 
   get x(): number { return this._x }
-  set x(v: number) { this._x = v; this._invalidateBBox() }
+  set x(v: number) {
+    const oldValue = this._x
+    this._x = v
+    if (oldValue !== v) this._mutationHandler?.('x', oldValue, v)
+    this._invalidateBBox()
+  }
   get y(): number { return this._y }
-  set y(v: number) { this._y = v; this._invalidateBBox() }
+  set y(v: number) {
+    const oldValue = this._y
+    this._y = v
+    if (oldValue !== v) this._mutationHandler?.('y', oldValue, v)
+    this._invalidateBBox()
+  }
   get width(): number { return this._width }
-  set width(v: number) { this._width = v; this._invalidateBBox() }
+  set width(v: number) {
+    const oldValue = this._width
+    this._width = v
+    if (oldValue !== v) this._mutationHandler?.('width', oldValue, v)
+    this._invalidateBBox()
+  }
   get height(): number { return this._height }
-  set height(v: number) { this._height = v; this._invalidateBBox() }
+  set height(v: number) {
+    const oldValue = this._height
+    this._height = v
+    if (oldValue !== v) this._mutationHandler?.('height', oldValue, v)
+    this._invalidateBBox()
+  }
   get rotation(): number { return this._rotation }
-  set rotation(v: number) { this._rotation = v; this._invalidateBBox() }
+  set rotation(v: number) {
+    const oldValue = this._rotation
+    this._rotation = v
+    if (oldValue !== v) this._mutationHandler?.('rotation', oldValue, v)
+    this._invalidateBBox()
+  }
   get scaleX(): number { return this._scaleX }
-  set scaleX(v: number) { this._scaleX = v; this._invalidateBBox() }
+  set scaleX(v: number) {
+    const oldValue = this._scaleX
+    this._scaleX = v
+    if (oldValue !== v) this._mutationHandler?.('scaleX', oldValue, v)
+    this._invalidateBBox()
+  }
   get scaleY(): number { return this._scaleY }
-  set scaleY(v: number) { this._scaleY = v; this._invalidateBBox() }
+  set scaleY(v: number) {
+    const oldValue = this._scaleY
+    this._scaleY = v
+    if (oldValue !== v) this._mutationHandler?.('scaleY', oldValue, v)
+    this._invalidateBBox()
+  }
   get skewX(): number { return this._skewX }
-  set skewX(v: number) { this._skewX = v; this._invalidateBBox() }
+  set skewX(v: number) {
+    const oldValue = this._skewX
+    this._skewX = v
+    if (oldValue !== v) this._mutationHandler?.('skewX', oldValue, v)
+    this._invalidateBBox()
+  }
   get skewY(): number { return this._skewY }
-  set skewY(v: number) { this._skewY = v; this._invalidateBBox() }
+  set skewY(v: number) {
+    const oldValue = this._skewY
+    this._skewY = v
+    if (oldValue !== v) this._mutationHandler?.('skewY', oldValue, v)
+    this._invalidateBBox()
+  }
 
   opacity: number
   visible: boolean
@@ -97,6 +142,8 @@ export abstract class BaseObject {
   _worldBBoxCache: BoundingBox | null = null
   /** @internal Set by Layer to receive notifications when this object's bbox changes. */
   private _onBBoxChange: (() => void) | null = null
+  /** @internal Set by Layer to receive notifications when this object's properties change. */
+  private _mutationHandler: ((property: string, oldValue: unknown, newValue: unknown) => void) | null = null
 
   private _eventHandlers = new Map<string, Set<EventHandler<unknown>>>()
 
@@ -210,6 +257,15 @@ export abstract class BaseObject {
    */
   _setBBoxChangeCallback(fn: (() => void) | null): void {
     this._onBBoxChange = fn
+  }
+
+  /**
+   * Register a callback invoked when this object's properties change.
+   * Used internally by Layer to emit object:mutated events on the stage.
+   * @internal
+   */
+  _setMutationHandler(fn: ((property: string, oldValue: unknown, newValue: unknown) => void) | null): void {
+    this._mutationHandler = fn
   }
 
   // ---------------------------------------------------------------------------

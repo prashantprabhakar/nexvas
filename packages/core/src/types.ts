@@ -115,6 +115,17 @@ export interface ObjectEventMap {
   doubletap: CanvasPointerEvent
 }
 
+export interface ObjectMutationEvent {
+  /** The object that changed */
+  object: BaseObject
+  /** The property that changed (e.g. 'x', 'y', 'width', 'rotation', etc.) */
+  property: string
+  /** The previous value before the change */
+  oldValue: unknown
+  /** The new value after the change */
+  newValue: unknown
+}
+
 export interface StageEventMap extends ObjectEventMap {
   wheel: CanvasWheelEvent
   /** Fired after a render frame completes. */
@@ -123,6 +134,8 @@ export interface StageEventMap extends ObjectEventMap {
   'object:added': { object: unknown }
   /** Fired when an object is removed from any layer. */
   'object:removed': { object: unknown }
+  /** Fired when an object's property changes (position, size, rotation, etc.). */
+  'object:mutated': ObjectMutationEvent
   // Plugin events — emitted by official plugins via stage.emit()
   /** Fired by SelectionPlugin when the selection changes. */
   'selection:change': { selected: unknown[] }

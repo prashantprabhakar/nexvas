@@ -141,6 +141,14 @@ export class Stage implements StageInterface {
         { object: obj },
       )
     })
+    layer.setPropertyMutationHandler((obj, property, oldValue, newValue) => {
+      this._events.emitStage('object:mutated', {
+        object: obj,
+        property,
+        oldValue,
+        newValue,
+      })
+    })
     this._layers.push(layer)
     this.markDirty()
     return layer

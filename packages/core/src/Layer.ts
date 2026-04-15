@@ -29,6 +29,7 @@ export class Layer {
 
   private _objects: BaseObject[] = []
   private _onObjectMutation: ((type: 'added' | 'removed', obj: BaseObject) => void) | null = null
+  private _onPropertyMutation: ((obj: BaseObject, property: string, oldValue: unknown, newValue: unknown) => void) | null = null
   private _index = new RBush<RBushItem>()
   private _indexItems = new Map<BaseObject, RBushItem>()
 
@@ -58,12 +59,26 @@ export class Layer {
     this._onObjectMutation = fn
   }
 
+  /**
+   * Register a callback invoked when an object's properties change.
+   * Used internally by Stage to emit `object:mutated` stage events.
+   * @internal
+   */
+  setPropertyMutationHandler(
+    fn: ((obj: BaseObject, property: string, oldValue: unknown, newValue: unknown) => void) | null,
+  ): void {
+    this._onPropertyMutation = fn
+  }
+
   add(object: BaseObject): this {
     if (object.parent !== null) {
       throw new Error(`Object "${object.id}" already has a parent. Remove it first.`)
     }
     this._objects.push(object)
     this._indexInsert(object)
+    object._setMutationHandler((property, oldValue, newValue) => {
+      this._onPropertyMutation?.(object, property, oldValue, newValue)
+    })
     this._onObjectMutation?.('added', object)
     return this
   }
@@ -74,6 +89,7 @@ export class Layer {
     this._objects.splice(index, 1)
     this._indexRemove(object)
     object.parent = null
+    object._setMutationHandler(null)
     this._onObjectMutation?.('removed', object)
     return this
   }
@@ -81,6 +97,8 @@ export class Layer {
   clear(): this {
     for (const obj of this._objects) {
       this._indexRemove(obj)
+      obj.parent = null
+      obj._setMutationHandler(null)
       obj.destroy()
       this._onObjectMutation?.('removed', obj)
     }
@@ -102,6 +120,7 @@ export class Layer {
     this._objects.splice(index, 1)
     this._indexRemove(object)
     object.parent = null
+    object._setMutationHandler(null)
     this._onObjectMutation?.('removed', object)
     return this
   }

@@ -57,6 +57,28 @@ export class CanvasImage extends BaseObject {
   private _loading = false
   private _loadGeneration = 0
 
+  /**
+   * Unsafe URL protocols that must never be fetched.
+   * Checked case-insensitively against the start of `src`.
+   */
+  private static readonly _UNSAFE_PROTOCOLS = /^(?:javascript|vbscript):/i
+
+  /**
+   * data: URIs that are NOT image content — these are rejected.
+   * Only `data:image/...` is allowed through.
+   */
+  private static readonly _UNSAFE_DATA = /^data:(?!image\/)/i
+
+  /**
+   * Returns true if the given src is safe to fetch.
+   * Rejects javascript:, vbscript:, and non-image data: URIs.
+   */
+  static isAllowedSrc(src: string): boolean {
+    if (CanvasImage._UNSAFE_PROTOCOLS.test(src)) return false
+    if (CanvasImage._UNSAFE_DATA.test(src)) return false
+    return true
+  }
+
   constructor(props: ImageProps = {}) {
     super(props)
     this.src = props.src ?? ''
@@ -77,6 +99,12 @@ export class CanvasImage extends BaseObject {
   private _startLoad(ck: ImageCK): void {
     // Skip only if this exact src is already loading (deduplicate)
     if (this._loadingSrc === this.src && this._loading) return
+
+    // Reject unsafe URLs at runtime (NV-019)
+    if (!CanvasImage.isAllowedSrc(this.src)) {
+      console.warn(`[nexvas:image] rejected unsafe src "${this.src.slice(0, 64)}"`)
+      return
+    }
 
     const generation = ++this._loadGeneration
     this._loading = true
@@ -221,8 +249,7 @@ export class CanvasImage extends BaseObject {
     obj.applyBaseJSON(json)
     if (json['src'] !== undefined) {
       const src = String(json['src'])
-      // Block javascript: URIs — they are never legitimate image sources
-      if (/^javascript:/i.test(src)) {
+      if (!CanvasImage.isAllowedSrc(src)) {
         console.warn(`[nexvas:image] fromJSON: rejected unsafe src "${src.slice(0, 64)}"`)
       } else {
         obj.src = src

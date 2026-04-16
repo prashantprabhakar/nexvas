@@ -41,7 +41,7 @@ export function objectFromJSON(
     default: {
       const deserializer = registry?.get(json.type)
       if (deserializer !== undefined) return deserializer(json)
-      throw new Error(`[nexvas] objectFromJSON: unknown object type "${String(json.type)}"`)
+      throw new Error(`[nexvas:deserialize] Unknown object type "${String(json.type)}"`)
     }
   }
 }

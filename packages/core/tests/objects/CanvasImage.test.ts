@@ -137,54 +137,125 @@ describe('CanvasImage', () => {
     })
   })
 
-  describe('NV-019 URL validation in fromJSON', () => {
-    it('rejects javascript: URLs', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      const json = {
-        type: 'Image',
-        id: 'x',
-        name: '',
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-        rotation: 0,
-        scaleX: 1,
-        scaleY: 1,
-        skewX: 0,
-        skewY: 0,
-        opacity: 1,
-        visible: true,
-        locked: false,
-        src: 'javascript:alert(1)',
-      }
-      const img = CanvasImage.fromJSON(json)
-      expect(img.src).toBe('') // src should remain empty (default)
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('unsafe src'))
-      consoleSpy.mockRestore()
+  describe('NV-019 URL validation', () => {
+    const baseJson = {
+      type: 'Image',
+      id: 'x',
+      name: '',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      skewX: 0,
+      skewY: 0,
+      opacity: 1,
+      visible: true,
+      locked: false,
+    }
+
+    describe('fromJSON rejects unsafe URLs', () => {
+      it('rejects javascript: URLs', () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const img = CanvasImage.fromJSON({ ...baseJson, src: 'javascript:alert(1)' })
+        expect(img.src).toBe('')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('rejected unsafe src'))
+        consoleSpy.mockRestore()
+      })
+
+      it('rejects JAVASCRIPT: (case-insensitive)', () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const img = CanvasImage.fromJSON({ ...baseJson, src: 'JAVASCRIPT:void(0)' })
+        expect(img.src).toBe('')
+        consoleSpy.mockRestore()
+      })
+
+      it('rejects vbscript: URLs', () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const img = CanvasImage.fromJSON({ ...baseJson, src: 'vbscript:MsgBox("hi")' })
+        expect(img.src).toBe('')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('rejected unsafe src'))
+        consoleSpy.mockRestore()
+      })
+
+      it('rejects data:text/html', () => {
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const img = CanvasImage.fromJSON({
+          ...baseJson,
+          src: 'data:text/html,<script>alert(1)</script>',
+        })
+        expect(img.src).toBe('')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('rejected unsafe src'))
+        consoleSpy.mockRestore()
+      })
     })
 
-    it('allows https: URLs', () => {
-      const json = {
-        type: 'Image',
-        id: 'x',
-        name: '',
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-        rotation: 0,
-        scaleX: 1,
-        scaleY: 1,
-        skewX: 0,
-        skewY: 0,
-        opacity: 1,
-        visible: true,
-        locked: false,
-        src: 'https://example.com/img.png',
-      }
-      const img = CanvasImage.fromJSON(json)
-      expect(img.src).toBe('https://example.com/img.png')
+    describe('fromJSON allows safe URLs', () => {
+      it('allows https: URLs', () => {
+        const img = CanvasImage.fromJSON({ ...baseJson, src: 'https://example.com/img.png' })
+        expect(img.src).toBe('https://example.com/img.png')
+      })
+
+      it('allows http: URLs', () => {
+        const img = CanvasImage.fromJSON({ ...baseJson, src: 'http://example.com/img.png' })
+        expect(img.src).toBe('http://example.com/img.png')
+      })
+
+      it('allows data:image/ URIs', () => {
+        const dataUri = 'data:image/png;base64,iVBORw0KGgo='
+        const img = CanvasImage.fromJSON({ ...baseJson, src: dataUri })
+        expect(img.src).toBe(dataUri)
+      })
+
+      it('allows blob: URLs', () => {
+        const img = CanvasImage.fromJSON({
+          ...baseJson,
+          src: 'blob:http://localhost/abc-123',
+        })
+        expect(img.src).toBe('blob:http://localhost/abc-123')
+      })
+
+      it('allows relative paths', () => {
+        const img = CanvasImage.fromJSON({ ...baseJson, src: '/images/photo.png' })
+        expect(img.src).toBe('/images/photo.png')
+      })
+    })
+
+    describe('_startLoad rejects unsafe URLs at runtime', () => {
+      it('does not fetch javascript: URLs', () => {
+        const { ctx } = makeCtx()
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}))
+        vi.stubGlobal('fetch', fetchMock)
+
+        const img = new CanvasImage({ src: 'javascript:alert(1)', width: 100, height: 100 })
+        img.render(ctx)
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('rejected unsafe src'))
+
+        consoleSpy.mockRestore()
+        vi.unstubAllGlobals()
+      })
+
+      it('does not fetch data:text/html URLs', () => {
+        const { ctx } = makeCtx()
+        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}))
+        vi.stubGlobal('fetch', fetchMock)
+
+        const img = new CanvasImage({
+          src: 'data:text/html,<script>alert(1)</script>',
+          width: 100,
+          height: 100,
+        })
+        img.render(ctx)
+        expect(fetchMock).not.toHaveBeenCalled()
+
+        consoleSpy.mockRestore()
+        vi.unstubAllGlobals()
+      })
     })
   })
 })

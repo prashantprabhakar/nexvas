@@ -7,7 +7,7 @@ import type { SceneJSON } from './types.js'
 /** Parse a semver string into [major, minor, patch]. Throws on invalid format. */
 function parseSemver(version: string): [number, number, number] {
   const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
-  if (!m) throw new Error(`[nexvas] migrate: invalid semver "${version}"`)
+  if (!m) throw new Error(`[nexvas:migrate] Invalid semver "${version}"`)
   return [parseInt(m[1]!, 10), parseInt(m[2]!, 10), parseInt(m[3]!, 10)]
 }
 
@@ -110,7 +110,7 @@ export function migrate(
 
   if (cmp > 0) {
     throw new Error(
-      `[nexvas] migrate: cannot downgrade schema from "${inputVersion}" to "${targetVersion}". ` +
+      `[nexvas:migrate] Cannot downgrade schema from "${inputVersion}" to "${targetVersion}". ` +
         `Only forward (upgrade) migrations are supported.`,
     )
   }
@@ -144,7 +144,7 @@ function buildChain(from: string, to: string): MigrationStep[] {
     const step = MIGRATIONS.find((m) => m.from === current)
     if (!step) {
       throw new Error(
-        `[nexvas] migrate: no migration step registered for schema version "${current}". ` +
+        `[nexvas:migrate] No migration step registered for schema version "${current}". ` +
           `Cannot upgrade to "${to}".`,
       )
     }
@@ -154,7 +154,7 @@ function buildChain(from: string, to: string): MigrationStep[] {
 
   if (current !== to) {
     throw new Error(
-      `[nexvas] migrate: migration chain ended at "${current}" but target is "${to}".`,
+      `[nexvas:migrate] Migration chain ended at "${current}" but target is "${to}".`,
     )
   }
 

@@ -115,7 +115,7 @@ export class Stage implements StageInterface {
     const surface = ck.MakeWebGLCanvasSurface(this.canvas, ck.ColorSpace.SRGB)
     if (!surface) {
       throw new Error(
-        '[nexvas] Failed to create CanvasKit WebGL surface. ' +
+        '[nexvas:stage] Failed to create CanvasKit WebGL surface. ' +
           'Ensure WebGL2 is available and the canvas element is attached to the DOM.',
       )
     }
@@ -279,7 +279,7 @@ export class Stage implements StageInterface {
     if (surface) {
       this._surface = surface
     } else {
-      console.error('[nexvas] Stage.resize(): failed to recreate WebGL surface after resize')
+      console.error('[nexvas:stage] Failed to recreate WebGL surface after resize')
     }
     this.markDirty()
   }
@@ -405,7 +405,7 @@ export class Stage implements StageInterface {
   loadJSON(json: SceneJSON): void {
     if (!json.version.startsWith('1.')) {
       throw new Error(
-        `[nexvas] loadJSON: unsupported schema version "${json.version}". Expected "1.x".`,
+        `[nexvas:stage] loadJSON: unsupported schema version "${json.version}". Expected "1.x".`,
       )
     }
     // Remove all existing layers

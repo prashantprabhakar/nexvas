@@ -87,7 +87,7 @@ export class FontManager {
       const resp = await fetch(source)
       if (!resp.ok) {
         console.warn(
-          `[nexvas] FontManager: failed to fetch font "${name}" from "${source}": ${resp.status}`,
+          `[nexvas:font] Failed to fetch font "${name}" from "${source}": ${resp.status}`,
         )
         return
       }
@@ -105,7 +105,7 @@ export class FontManager {
     this._defaultFontLoaded = true
     const promise = this._doLoad(DEFAULT_FONT_NAME, this._defaultFontUrl).catch((err: unknown) => {
       console.warn(
-        `[nexvas] FontManager: failed to load default font: ${err instanceof Error ? err.message : String(err)}`,
+        `[nexvas:font] Failed to load default font: ${err instanceof Error ? err.message : String(err)}`,
       )
     })
     this._pendingLoads.push(promise)

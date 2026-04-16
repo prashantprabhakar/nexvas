@@ -210,7 +210,7 @@ export class Text extends BaseObject {
 
     if (!fontMgr.hasFont(this.fontFamily) && !fontMgr.hasFont('Noto Sans')) {
       console.warn(
-        `[nexvas] Text: font "${this.fontFamily}" not loaded yet — skipping render. ` +
+        `[nexvas:text] Font "${this.fontFamily}" not loaded yet — skipping render. ` +
           'Call stage.fonts.waitForReady() before first render.',
       )
       return

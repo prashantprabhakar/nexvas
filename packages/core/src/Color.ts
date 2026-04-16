@@ -62,7 +62,7 @@ export const Color = {
   name(name: string): SolidFill {
     if (name === 'transparent') return { type: 'solid', color: { r: 0, g: 0, b: 0, a: 0 } }
     const hex = CSS_COLORS[name.toLowerCase()]
-    if (!hex) throw new Error(`[nexvas] Color.name: unknown color "${name}"`)
+    if (!hex) throw new Error(`[nexvas:color] Unknown color name "${name}"`)
     return Color.hex(hex)
   },
 
@@ -99,11 +99,11 @@ function hexToRGBA(hex: string, alpha: number): ColorRGBA {
     b = parseInt(h.slice(4, 6), 16) / 255
     a = parseInt(h.slice(6, 8), 16) / 255
   } else {
-    throw new Error(`[nexvas] Color.hex: invalid hex "${hex}"`)
+    throw new Error(`[nexvas:color] Invalid hex "${hex}"`)
   }
 
   if (isNaN(r) || isNaN(g) || isNaN(b)) {
-    throw new Error(`[nexvas] Color.hex: invalid hex "${hex}"`)
+    throw new Error(`[nexvas:color] Invalid hex "${hex}"`)
   }
 
   return { r, g, b, a }

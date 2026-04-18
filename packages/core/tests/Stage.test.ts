@@ -650,4 +650,186 @@ describe('Stage', () => {
       expect(addedHandler).not.toHaveBeenCalled()
     })
   })
+
+  describe('groupObjects() / ungroupObject()', () => {
+    it('groupObjects creates a Group containing the given objects', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r1 = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      const r2 = new Rect({ x: 100, y: 0, width: 50, height: 50 })
+      layer.add(r1).add(r2)
+
+      const group = stage.groupObjects([r1, r2])
+      expect(group).toBeInstanceOf(Group)
+      expect(group.children).toHaveLength(2)
+      expect(layer.objects).toHaveLength(1)
+      expect(layer.objects[0]).toBe(group)
+    })
+
+    it('groupObjects places group at union-bbox origin', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r1 = new Rect({ x: 20, y: 30, width: 50, height: 50 })
+      const r2 = new Rect({ x: 80, y: 10, width: 40, height: 40 })
+      layer.add(r1).add(r2)
+
+      const group = stage.groupObjects([r1, r2])
+      // Union bbox: x=20, y=10 (min corners)
+      expect(group.x).toBe(20)
+      expect(group.y).toBe(10)
+    })
+
+    it('groupObjects preserves world positions of children', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r = new Rect({ x: 100, y: 200, width: 50, height: 50 })
+      layer.add(r)
+
+      const group = stage.groupObjects([r])
+      // group is at (100, 200), child should be at (0, 0) in group space
+      expect(group.x).toBe(100)
+      expect(group.y).toBe(200)
+      expect(r.x).toBe(0)
+      expect(r.y).toBe(0)
+    })
+
+    it('groupObjects accepts explicit layer by instance', () => {
+      const { stage } = makeStage()
+      const layer1 = stage.addLayer()
+      const layer2 = stage.addLayer()
+      const r = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      layer1.add(r)
+
+      const group = stage.groupObjects([r], layer2)
+      expect(layer2.objects).toContain(group)
+      expect(layer1.objects).toHaveLength(0)
+    })
+
+    it('groupObjects accepts explicit layer by id string', () => {
+      const { stage } = makeStage()
+      const layer1 = stage.addLayer({ id: 'grp-layer1' })
+      const layer2 = stage.addLayer({ id: 'grp-layer2' })
+      const r = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      layer1.add(r)
+
+      const group = stage.groupObjects([r], 'grp-layer2')
+      expect(layer2.objects).toContain(group)
+    })
+
+    it('groupObjects throws on empty array', () => {
+      const { stage } = makeStage()
+      expect(() => stage.groupObjects([])).toThrow(/empty/)
+    })
+
+    it('groupObjects throws when object is not in any layer', () => {
+      const { stage } = makeStage()
+      stage.addLayer()
+      const r = new Rect()
+      expect(() => stage.groupObjects([r])).toThrow(/not in any layer/)
+    })
+
+    it('groupObjects throws on unknown layerId string', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r = new Rect({ x: 0, y: 0, width: 10, height: 10 })
+      layer.add(r)
+      expect(() => stage.groupObjects([r], 'nonexistent')).toThrow(/not found/)
+    })
+
+    it('ungroupObject moves children back to the layer', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r1 = new Rect({ x: 10, y: 10, width: 50, height: 50 })
+      const r2 = new Rect({ x: 70, y: 10, width: 50, height: 50 })
+      layer.add(r1).add(r2)
+
+      const group = stage.groupObjects([r1, r2])
+      const ungrouped = stage.ungroupObject(group)
+
+      expect(ungrouped).toHaveLength(2)
+      expect(layer.objects).toHaveLength(2)
+      expect(layer.objects).not.toContain(group)
+      expect(layer.objects).toContain(r1)
+      expect(layer.objects).toContain(r2)
+    })
+
+    it('ungroupObject restores world positions (no rotation on group)', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r = new Rect({ x: 100, y: 200, width: 50, height: 50 })
+      layer.add(r)
+
+      stage.groupObjects([r])
+      stage.ungroupObject(layer.objects[0] as Group)
+
+      // World position must be restored
+      expect(r.x).toBeCloseTo(100)
+      expect(r.y).toBeCloseTo(200)
+    })
+
+    it('ungroupObject restores world positions when group has rotation', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      layer.add(r)
+
+      const group = stage.groupObjects([r])
+      // Rotate the group 90 degrees and translate it
+      group.x = 50
+      group.y = 100
+      group.rotation = 90
+
+      const worldBefore = group.getWorldTransform().multiply(r.getLocalTransform())
+      const expectedX = worldBefore.values[2]
+      const expectedY = worldBefore.values[5]
+
+      stage.ungroupObject(group)
+
+      expect(r.x).toBeCloseTo(expectedX)
+      expect(r.y).toBeCloseTo(expectedY)
+      expect(r.rotation).toBeCloseTo(90)
+    })
+
+    it('ungroupObject throws when group is not in any layer', () => {
+      const { stage } = makeStage()
+      const group = new Group()
+      expect(() => stage.ungroupObject(group)).toThrow(/not in any layer/)
+    })
+
+    it('groupObjects emits group:created event', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r1 = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      const r2 = new Rect({ x: 60, y: 0, width: 50, height: 50 })
+      layer.add(r1).add(r2)
+
+      const events: unknown[] = []
+      stage.on('group:created', (e) => events.push(e))
+
+      const group = stage.groupObjects([r1, r2])
+      expect(events).toHaveLength(1)
+      const evt = events[0] as { group: Group; layer: unknown; members: unknown[] }
+      expect(evt.group).toBe(group)
+      expect(evt.layer).toBe(layer)
+      expect(evt.members).toEqual([r1, r2])
+    })
+
+    it('ungroupObject emits group:dissolved event', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const r = new Rect({ x: 10, y: 20, width: 50, height: 50 })
+      layer.add(r)
+      const group = stage.groupObjects([r])
+
+      const events: unknown[] = []
+      stage.on('group:dissolved', (e) => events.push(e))
+
+      const children = stage.ungroupObject(group)
+      expect(events).toHaveLength(1)
+      const evt = events[0] as { group: Group; layer: unknown; members: unknown[] }
+      expect(evt.group).toBe(group)
+      expect(evt.layer).toBe(layer)
+      expect(evt.members).toEqual(children)
+    })
+  })
 })

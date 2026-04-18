@@ -4,6 +4,8 @@ import { EventSystem } from './EventSystem.js'
 import { PluginRegistry } from './PluginRegistry.js'
 import { FontManager } from './FontManager.js'
 import { BoundingBox } from './math/BoundingBox.js'
+import { Matrix3x3 } from './math/Matrix3x3.js'
+import { Group } from './objects/Group.js'
 import type { ViewportOptions } from './Viewport.js'
 import type {
   CanvasKitLike,
@@ -309,6 +311,120 @@ export class Stage implements StageInterface {
     if (oldIndex !== newIndex) {
       this._events.emitStage('zorder:change', { object: obj, layer, oldIndex, newIndex })
       this.markDirty()
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Group / Ungroup
+  // ---------------------------------------------------------------------------
+
+  groupObjects(objects: BaseObject[], layerOrId?: Layer | string): Group {
+    if (objects.length === 0) {
+      throw new Error('[nexvas:stage] groupObjects: objects array must not be empty')
+    }
+
+    // Resolve target layer
+    let targetLayer: Layer | null = null
+    if (layerOrId instanceof Layer) {
+      targetLayer = layerOrId
+    } else if (typeof layerOrId === 'string') {
+      targetLayer = this._layers.find((l) => l.id === layerOrId) ?? null
+      if (!targetLayer) {
+        throw new Error(`[nexvas:stage] groupObjects: layer "${layerOrId}" not found`)
+      }
+    } else {
+      targetLayer = this.getObjectLayer(objects[0]!)
+      if (!targetLayer) {
+        throw new Error('[nexvas:stage] groupObjects: first object is not in any layer')
+      }
+    }
+
+    // Validate all objects are in layers (not already in groups)
+    for (const obj of objects) {
+      const objLayer = this.getObjectLayer(obj)
+      if (!objLayer) {
+        throw new Error(
+          `[nexvas:stage] groupObjects: object "${obj.id}" is not a direct child of any layer`,
+        )
+      }
+    }
+
+    // Compute bounding box union in world space to determine group origin
+    let unionBox: BoundingBox | null = null
+    for (const obj of objects) {
+      const bb = obj.getWorldBoundingBox()
+      unionBox = unionBox === null ? bb : unionBox.union(bb)
+    }
+    const box = unionBox!
+
+    const group = new Group({ x: box.x, y: box.y, width: box.width, height: box.height })
+
+    this.batch(() => {
+      for (const obj of objects) {
+        const objLayer = this.getObjectLayer(obj)!
+        objLayer.remove(obj)
+        // Shift into group-local space (group has no rotation/scale, just translation)
+        obj.x -= group.x
+        obj.y -= group.y
+        group.add(obj)
+      }
+      targetLayer!.add(group)
+    })
+
+    this._events.emitStage('group:created', { group, layer: targetLayer, members: objects })
+    this.markDirty()
+    return group
+  }
+
+  ungroupObject(group: Group): BaseObject[] {
+    const layer = this.getObjectLayer(group)
+    if (!layer) {
+      throw new Error('[nexvas:stage] ungroupObject: group is not in any layer')
+    }
+
+    const children = [...group.children] as BaseObject[]
+    const groupWorldTransform = group.getWorldTransform()
+
+    // Pre-compute new world transforms before any structural changes
+    const newTransforms = children.map((child) => {
+      const composed = groupWorldTransform.multiply(child.getLocalTransform())
+      return this._decomposeMatrix(composed)
+    })
+
+    this.batch(() => {
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i]!
+        const t = newTransforms[i]!
+        group.remove(child)
+        child.x = t.x
+        child.y = t.y
+        child.rotation = t.rotation
+        child.scaleX = t.scaleX
+        child.scaleY = t.scaleY
+        layer.add(child)
+      }
+    })
+
+    layer.remove(group)
+    this._events.emitStage('group:dissolved', { group, layer, members: children })
+    this.markDirty()
+    return children
+  }
+
+  /**
+   * Decompose a TRS matrix into translation, rotation (degrees), and scale
+   * components. Assumes the matrix has the form T * R * S with no shear.
+   */
+  private _decomposeMatrix(
+    m: Matrix3x3,
+  ): { x: number; y: number; rotation: number; scaleX: number; scaleY: number } {
+    const v = m.values
+    return {
+      x: v[2],
+      y: v[5],
+      rotation: (Math.atan2(v[3], v[0]) * 180) / Math.PI,
+      scaleX: Math.sqrt(v[0] * v[0] + v[3] * v[3]),
+      scaleY: Math.sqrt(v[1] * v[1] + v[4] * v[4]),
     }
   }
 

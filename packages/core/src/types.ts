@@ -3,6 +3,7 @@ import type { Layer } from './Layer.js'
 import type { Viewport } from './Viewport.js'
 import type { FontManager } from './FontManager.js'
 import type { BaseObject } from './objects/BaseObject.js'
+import type { Group } from './objects/Group.js'
 
 /**
  * A function that deserializes a plain JSON object into a typed scene object.
@@ -201,6 +202,18 @@ export interface StageEventMap extends ObjectEventMap {
    * HistoryPlugin listens to this to record undoable z-order commands.
    */
   'zorder:change': { object: BaseObject; layer: Layer; oldIndex: number; newIndex: number }
+  /**
+   * Fired by `stage.groupObjects()` when a new Group is created.
+   * Contains the group, the layer it was added to, and the original objects
+   * (with their pre-group layer assignments for undo purposes).
+   */
+  'group:created': { group: Group; layer: Layer; members: BaseObject[] }
+  /**
+   * Fired by `stage.ungroupObject()` when a Group is dissolved.
+   * Contains the dissolved group, the layer its children were moved to, and
+   * the children in their original order.
+   */
+  'group:dissolved': { group: Group; layer: Layer; members: BaseObject[] }
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +351,30 @@ export interface StageInterface {
   bringForward(obj: BaseObject): void
   /** Move the object one step backward in z-order within its layer. */
   sendBackward(obj: BaseObject): void
+  /**
+   * Group a set of objects into a new {@link Group}, preserving their world
+   * positions. The group is placed at the bounding-box origin of the provided
+   * objects and each child's local position is adjusted so its world position
+   * does not change. Uses `batch()` internally — HistoryPlugin records one
+   * undo entry.
+   *
+   * @param objects - Objects to group. All must be direct children of a layer
+   *   (not already inside a group).
+   * @param layerOrId - Layer to add the new group to. Defaults to the layer
+   *   that contains the first object.
+   * @throws If `objects` is empty or any object is not in a layer.
+   */
+  groupObjects(objects: BaseObject[], layerOrId?: Layer | string): Group
+  /**
+   * Dissolve a {@link Group}, moving its children back to the group's parent
+   * layer while preserving their world positions. The group is removed from the
+   * layer. Uses `batch()` internally — HistoryPlugin records one undo entry.
+   *
+   * @param group - The group to ungroup. Must be a direct child of a layer.
+   * @throws If the group is not in any layer.
+   * @returns The children that were moved to the layer (in original child order).
+   */
+  ungroupObject(group: Group): BaseObject[]
   /**
    * Coalesce multiple property mutations into a single `object:mutated` flush
    * and one `batch:commit` event.

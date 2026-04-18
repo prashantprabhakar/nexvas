@@ -172,6 +172,20 @@ export class Layer {
     }
   }
 
+  /**
+   * Move an object to an arbitrary z-order index within this layer.
+   * The index is clamped to [0, objects.length - 1].
+   * No-op if the object is not in this layer.
+   */
+  moveTo(object: BaseObject, index: number): void {
+    const i = this._objects.indexOf(object)
+    if (i === -1) return
+    const clamped = Math.max(0, Math.min(this._objects.length - 1, index))
+    if (i === clamped) return
+    this._objects.splice(i, 1)
+    this._objects.splice(clamped, 0, object)
+  }
+
   // ---------------------------------------------------------------------------
   // Hit testing
   // ---------------------------------------------------------------------------

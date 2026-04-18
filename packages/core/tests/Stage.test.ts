@@ -472,6 +472,150 @@ describe('Stage', () => {
     })
   })
 
+  describe('Z-order API', () => {
+    it('getObjectLayer returns the layer containing the object', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const rect = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      layer.add(rect)
+      expect(stage.getObjectLayer(rect)).toBe(layer)
+    })
+
+    it('getObjectLayer returns null for an object not in any layer', () => {
+      const { stage } = makeStage()
+      stage.addLayer()
+      const rect = new Rect()
+      expect(stage.getObjectLayer(rect)).toBeNull()
+    })
+
+    it('bringToFront moves object to highest z-order', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      const c = new Rect()
+      layer.add(a).add(b).add(c)
+      stage.bringToFront(a)
+      const objs = layer.objects
+      expect(objs[objs.length - 1]).toBe(a)
+    })
+
+    it('sendToBack moves object to lowest z-order', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      const c = new Rect()
+      layer.add(a).add(b).add(c)
+      stage.sendToBack(c)
+      expect(layer.objects[0]).toBe(c)
+    })
+
+    it('bringForward moves object one step up', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      const c = new Rect()
+      layer.add(a).add(b).add(c)
+      stage.bringForward(a)
+      expect(layer.objects[1]).toBe(a)
+    })
+
+    it('sendBackward moves object one step down', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      const c = new Rect()
+      layer.add(a).add(b).add(c)
+      stage.sendBackward(c)
+      expect(layer.objects[1]).toBe(c)
+    })
+
+    it('bringToFront is a no-op for object not in any layer', () => {
+      const { stage } = makeStage()
+      stage.addLayer()
+      const rect = new Rect()
+      expect(() => stage.bringToFront(rect)).not.toThrow()
+    })
+
+    it('bringToFront emits zorder:change with correct indices', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      const c = new Rect()
+      layer.add(a).add(b).add(c)
+
+      const events: Array<{ oldIndex: number; newIndex: number }> = []
+      stage.on('zorder:change', (e) => events.push({ oldIndex: e.oldIndex, newIndex: e.newIndex }))
+
+      stage.bringToFront(a)
+      expect(events).toHaveLength(1)
+      expect(events[0]!.oldIndex).toBe(0)
+      expect(events[0]!.newIndex).toBe(2)
+    })
+
+    it('sendToBack emits zorder:change with correct indices', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      const c = new Rect()
+      layer.add(a).add(b).add(c)
+
+      const events: Array<{ oldIndex: number; newIndex: number }> = []
+      stage.on('zorder:change', (e) => events.push({ oldIndex: e.oldIndex, newIndex: e.newIndex }))
+
+      stage.sendToBack(c)
+      expect(events).toHaveLength(1)
+      expect(events[0]!.oldIndex).toBe(2)
+      expect(events[0]!.newIndex).toBe(0)
+    })
+
+    it('bringToFront does not emit zorder:change when already at top', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      layer.add(a).add(b)
+
+      const events: unknown[] = []
+      stage.on('zorder:change', (e) => events.push(e))
+
+      stage.bringToFront(b) // already at top
+      expect(events).toHaveLength(0)
+    })
+
+    it('bringForward emits zorder:change', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      layer.add(a).add(b)
+
+      const events: Array<{ oldIndex: number; newIndex: number }> = []
+      stage.on('zorder:change', (e) => events.push({ oldIndex: e.oldIndex, newIndex: e.newIndex }))
+
+      stage.bringForward(a)
+      expect(events).toHaveLength(1)
+      expect(events[0]!.oldIndex).toBe(0)
+      expect(events[0]!.newIndex).toBe(1)
+    })
+
+    it('markDirty is called after z-order change', () => {
+      const { stage } = makeStage()
+      const layer = stage.addLayer()
+      const a = new Rect()
+      const b = new Rect()
+      layer.add(a).add(b)
+      stage['_dirty'] = false
+      stage.bringToFront(a)
+      expect(stage['_dirty']).toBe(true)
+    })
+  })
+
   describe('object:added / object:removed events', () => {
     it('emits object:added when an object is added to a stage-owned layer', () => {
       const { stage } = makeStage()

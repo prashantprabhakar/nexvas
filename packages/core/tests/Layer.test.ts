@@ -75,6 +75,48 @@ describe('Layer', () => {
     expect(layer.objects[0]).toBe(b)
   })
 
+  it('z-order: moveTo places object at given index', () => {
+    const layer = new Layer()
+    const a = new Rect()
+    const b = new Rect()
+    const c = new Rect()
+    layer.add(a).add(b).add(c)
+    layer.moveTo(a, 2)
+    expect(layer.objects[2]).toBe(a)
+    expect(layer.objects[0]).toBe(b)
+    expect(layer.objects[1]).toBe(c)
+  })
+
+  it('z-order: moveTo clamps index to valid range', () => {
+    const layer = new Layer()
+    const a = new Rect()
+    const b = new Rect()
+    layer.add(a).add(b)
+    layer.moveTo(a, 99)
+    expect(layer.objects[layer.objects.length - 1]).toBe(a)
+    layer.moveTo(b, -5)
+    expect(layer.objects[0]).toBe(b)
+  })
+
+  it('z-order: moveTo is a no-op when object is not in layer', () => {
+    const layer = new Layer()
+    const a = new Rect()
+    const b = new Rect()
+    layer.add(a)
+    expect(() => layer.moveTo(b, 0)).not.toThrow()
+    expect(layer.objects).toHaveLength(1)
+  })
+
+  it('z-order: moveTo is a no-op when already at target index', () => {
+    const layer = new Layer()
+    const a = new Rect()
+    const b = new Rect()
+    layer.add(a).add(b)
+    layer.moveTo(a, 0) // already at 0
+    expect(layer.objects[0]).toBe(a)
+    expect(layer.objects[1]).toBe(b)
+  })
+
   it('hitTest returns topmost object', () => {
     const layer = new Layer()
     const a = new Rect({ x: 0, y: 0, width: 100, height: 100 })

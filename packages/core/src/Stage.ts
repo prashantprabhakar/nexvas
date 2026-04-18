@@ -253,6 +253,65 @@ export class Stage implements StageInterface {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Z-order
+  // ---------------------------------------------------------------------------
+
+  getObjectLayer(obj: BaseObject): Layer | null {
+    for (const layer of this._layers) {
+      if (layer.objects.includes(obj)) return layer
+    }
+    return null
+  }
+
+  bringToFront(obj: BaseObject): void {
+    const layer = this.getObjectLayer(obj)
+    if (!layer) return
+    const oldIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    layer.moveToTop(obj)
+    const newIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    if (oldIndex !== newIndex) {
+      this._events.emitStage('zorder:change', { object: obj, layer, oldIndex, newIndex })
+      this.markDirty()
+    }
+  }
+
+  sendToBack(obj: BaseObject): void {
+    const layer = this.getObjectLayer(obj)
+    if (!layer) return
+    const oldIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    layer.moveToBottom(obj)
+    const newIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    if (oldIndex !== newIndex) {
+      this._events.emitStage('zorder:change', { object: obj, layer, oldIndex, newIndex })
+      this.markDirty()
+    }
+  }
+
+  bringForward(obj: BaseObject): void {
+    const layer = this.getObjectLayer(obj)
+    if (!layer) return
+    const oldIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    layer.moveUp(obj)
+    const newIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    if (oldIndex !== newIndex) {
+      this._events.emitStage('zorder:change', { object: obj, layer, oldIndex, newIndex })
+      this.markDirty()
+    }
+  }
+
+  sendBackward(obj: BaseObject): void {
+    const layer = this.getObjectLayer(obj)
+    if (!layer) return
+    const oldIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    layer.moveDown(obj)
+    const newIndex = (layer.objects as BaseObject[]).indexOf(obj)
+    if (oldIndex !== newIndex) {
+      this._events.emitStage('zorder:change', { object: obj, layer, oldIndex, newIndex })
+      this.markDirty()
+    }
+  }
+
   private _handlePropertyMutation(event: ObjectMutationEvent): void {
     if (this._batchDepth > 0) {
       this._pendingMutations.push(event)

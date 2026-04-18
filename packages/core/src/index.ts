@@ -62,4 +62,5 @@ export type {
   StrokeLineCap,
   StrokeLineJoin,
   ColorRGBA,
+  ObjectMutationEvent,
 } from './types.js'

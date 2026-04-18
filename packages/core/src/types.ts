@@ -191,6 +191,12 @@ export interface StageEventMap extends ObjectEventMap {
    * event to record a single undo entry for the entire batch.
    */
   'batch:commit': { mutations: ObjectMutationEvent[] }
+  /**
+   * Fired when an object's z-order changes via bringToFront / sendToBack /
+   * bringForward / sendBackward or Layer.moveTo().
+   * HistoryPlugin listens to this to record undoable z-order commands.
+   */
+  'zorder:change': { object: BaseObject; layer: Layer; oldIndex: number; newIndex: number }
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +294,18 @@ export interface StageInterface {
    * ```
    */
   registerObject(typeName: string, deserializer: ObjectDeserializer): void
+  /**
+   * Return the Layer that contains `obj`, or null if not found in any layer.
+   */
+  getObjectLayer(obj: BaseObject): Layer | null
+  /** Move the object to the front (highest z-order) within its layer. */
+  bringToFront(obj: BaseObject): void
+  /** Move the object to the back (lowest z-order) within its layer. */
+  sendToBack(obj: BaseObject): void
+  /** Move the object one step forward in z-order within its layer. */
+  bringForward(obj: BaseObject): void
+  /** Move the object one step backward in z-order within its layer. */
+  sendBackward(obj: BaseObject): void
   /**
    * Coalesce multiple property mutations into a single `object:mutated` flush
    * and one `batch:commit` event.

@@ -80,6 +80,8 @@ export interface ObjectJSON {
   opacity: number
   visible: boolean
   locked: boolean
+  /** Custom ports override — only present when the object has non-default ports. */
+  ports?: Port[]
   [key: string]: unknown
 }
 
@@ -224,6 +226,27 @@ export interface Plugin {
    * Must fully clean up all side effects from install().
    */
   uninstall(stage: StageInterface): void
+}
+
+// ---------------------------------------------------------------------------
+// Ports / anchor points
+// ---------------------------------------------------------------------------
+
+/**
+ * A named attachment point on a BaseObject, used by Connector to snap endpoints
+ * to specific positions on an object.
+ *
+ * `relX` and `relY` are in the object's local coordinate space, relative to the
+ * object's local bounding box: 0 = left/top edge, 1 = right/bottom edge.
+ * So `{ relX: 0.5, relY: 0 }` is the top-center of the object.
+ */
+export interface Port {
+  /** Unique id within the object, e.g. "top", "right", "bottom", "left", "center". */
+  id: string
+  /** Position relative to object local bounds: 0 = left, 1 = right. */
+  relX: number
+  /** Position relative to object local bounds: 0 = top, 1 = bottom. */
+  relY: number
 }
 
 // ---------------------------------------------------------------------------

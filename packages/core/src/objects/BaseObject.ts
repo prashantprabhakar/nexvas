@@ -1,6 +1,6 @@
 import { Matrix3x3 } from '../math/Matrix3x3.js'
 import { BoundingBox } from '../math/BoundingBox.js'
-import type { ObjectJSON, RenderContext, ObjectEventMap, Fill, StrokeStyle } from '../types.js'
+import type { ObjectJSON, RenderContext, ObjectEventMap, Fill, StrokeStyle, Port } from '../types.js'
 
 export type EventHandler<T> = (event: T) => void
 
@@ -37,6 +37,12 @@ export interface BaseObjectProps {
   isResizable?: boolean
   /** Hit testing tolerance in world units. Default: 4. */
   hitTolerance?: number
+  /**
+   * Custom port overrides. When non-empty, replaces the default five ports
+   * (top, right, bottom, left, center). Store only when you need non-standard
+   * attachment points — the defaults are inferred and not persisted in JSON.
+   */
+  ports?: Port[]
 }
 
 /**
@@ -141,6 +147,13 @@ export abstract class BaseObject {
   isResizable: boolean
   /** Hit testing tolerance in world units. Default: 4. */
   hitTolerance: number
+  /**
+   * Custom port overrides. When empty (the default), the five standard ports
+   * (top, right, bottom, left, center) are used — computed from the bounding
+   * box at query time and not persisted. Set to a non-empty array to replace
+   * the defaults with your own named attachment points.
+   */
+  ports: Port[]
 
   /** Reference to the parent Group, set by Group.add(). */
   parent: BaseObject | null = null
@@ -182,6 +195,7 @@ export abstract class BaseObject {
     this.isMovable = props.isMovable ?? true
     this.isResizable = props.isResizable ?? true
     this.hitTolerance = props.hitTolerance ?? 4
+    this.ports = props.ports ?? []
   }
 
   // ---------------------------------------------------------------------------
@@ -208,6 +222,49 @@ export abstract class BaseObject {
   getWorldTransform(): Matrix3x3 {
     if (this.parent === null) return this.getLocalTransform()
     return this.parent.getWorldTransform().multiply(this.getLocalTransform())
+  }
+
+  /**
+   * Returns the five default ports (top, right, bottom, left, center) derived
+   * from the object's local bounding box. These are the ports used when
+   * `this.ports` is empty.
+   */
+  getDefaultPorts(): Port[] {
+    return [
+      { id: 'top',    relX: 0.5, relY: 0 },
+      { id: 'right',  relX: 1,   relY: 0.5 },
+      { id: 'bottom', relX: 0.5, relY: 1 },
+      { id: 'left',   relX: 0,   relY: 0.5 },
+      { id: 'center', relX: 0.5, relY: 0.5 },
+    ]
+  }
+
+  /**
+   * Returns all ports on this object: custom ports when set, otherwise the five
+   * default ports.
+   */
+  getPorts(): Port[] {
+    return this.ports.length > 0 ? this.ports : this.getDefaultPorts()
+  }
+
+  /**
+   * Returns the world-space position of the named port, or `null` if no port
+   * with that id exists.
+   *
+   * The position is computed by mapping `(relX * localWidth, relY * localHeight)`
+   * through the full world transform, so it correctly accounts for pan, zoom,
+   * rotation, and scale on all ancestor groups.
+   *
+   * @param portId - The port id to look up, e.g. "top", "left", "center".
+   */
+  getPortWorldPosition(portId: string): { x: number; y: number } | null {
+    const port = this.getPorts().find((p) => p.id === portId)
+    if (port === undefined) return null
+    const bbox = this.getLocalBoundingBox()
+    const localX = bbox.x + port.relX * bbox.width
+    const localY = bbox.y + port.relY * bbox.height
+    const world = this.getWorldTransform().transformPoint(localX, localY)
+    return { x: world.x, y: world.y }
   }
 
   /**
@@ -317,7 +374,7 @@ export abstract class BaseObject {
   // ---------------------------------------------------------------------------
 
   toJSON(): ObjectJSON {
-    return {
+    const json: ObjectJSON = {
       type: this.getType(),
       id: this.id,
       name: this.name,
@@ -339,6 +396,9 @@ export abstract class BaseObject {
       isResizable: this.isResizable,
       hitTolerance: this.hitTolerance,
     }
+    // Only persist custom ports — default ports are always inferred.
+    if (this.ports.length > 0) json.ports = this.ports
+    return json
   }
 
   /** Subclasses return their type string, e.g. "Rect", "Circle". */
@@ -364,6 +424,7 @@ export abstract class BaseObject {
     this.isMovable = typeof json['isMovable'] === 'boolean' ? json['isMovable'] : true
     this.isResizable = typeof json['isResizable'] === 'boolean' ? json['isResizable'] : true
     this.hitTolerance = sanitizeFinite(json['hitTolerance'], 4)
+    this.ports = Array.isArray(json.ports) ? (json.ports as Port[]) : []
   }
 
   // ---------------------------------------------------------------------------

@@ -185,6 +185,8 @@ export interface StageEventMap extends ObjectEventMap {
   'objects:deleted': { objects: unknown[] }
   /** Fired by HistoryPlugin when the undo/redo stack changes. */
   'history:change': { canUndo: boolean; canRedo: boolean }
+  /** Fired by HistoryPlugin when checkpoint() is called. */
+  'history:checkpoint': { label?: string }
   /**
    * Fired once when a `stage.batch()` call completes.
    * Contains all mutations that were coalesced. HistoryPlugin listens to this

@@ -1,6 +1,6 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
 import { BoundingBox } from '../math/BoundingBox.js'
-import { makeFillPaint, makeStrokePaint, fillCacheKey, strokeCacheKey, drawArrowHead, type PaintCK, type ArrowCK, type SkPaint } from '../renderer/paint.js'
+import { makeFillPaint, makeStrokePaint, fillCacheKey, strokeCacheKey, drawArrowHead, makeEffectPaint, effectsCacheKey, type PaintCK, type ArrowCK, type EffectCK, type SkPaint } from '../renderer/paint.js'
 import type { RenderContext, ObjectJSON } from '../types.js'
 
 interface SkPath {
@@ -13,6 +13,7 @@ interface SkCanvas {
   save(): number
   restore(): void
   concat(matrix: ArrayLike<number>): void
+  saveLayer(paint: unknown): number
   drawPath(path: SkPath, paint: unknown): void
 }
 
@@ -203,6 +204,16 @@ export class Path extends BaseObject {
     canvas.save()
     canvas.concat(this.getLocalTransform().values)
 
+    const hasEffects = this.effects.length > 0
+    if (hasEffects) {
+      const key = effectsCacheKey(this.effects)
+      if (this._effectPaintCache?.key !== key) {
+        ;(this._effectPaintCache?.paint as SkPaint | undefined)?.delete()
+        this._effectPaintCache = { paint: makeEffectPaint(ck as unknown as EffectCK, this.effects), key }
+      }
+      canvas.saveLayer(this._effectPaintCache!.paint)
+    }
+
     if (this.fill) {
       const lb = this.getLocalBoundingBox()
       const bounds = { x: lb.x, y: lb.y, width: lb.width, height: lb.height }
@@ -246,6 +257,7 @@ export class Path extends BaseObject {
       this._strokePaintCache = null
     }
 
+    if (hasEffects) canvas.restore()
     canvas.restore()
   }
 

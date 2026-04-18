@@ -24,7 +24,7 @@ export type ObjectDeserializer = (json: ObjectJSON) => BaseObject
  */
 export interface CanvasKitLike {
   // Construction
-  Paint: new () => { setColor(c: Float32Array): void; setStyle(s: unknown): void; setStrokeWidth(w: number): void; setAntiAlias(aa: boolean): void; setStrokeCap(cap: unknown): void; setStrokeJoin(join: unknown): void; setStrokeMiter(limit: number): void; setShader(shader: unknown | null): void; setAlphaf(alpha: number): void; delete(): void; [k: string]: unknown }
+  Paint: new () => { setColor(c: Float32Array): void; setStyle(s: unknown): void; setStrokeWidth(w: number): void; setAntiAlias(aa: boolean): void; setStrokeCap(cap: unknown): void; setStrokeJoin(join: unknown): void; setStrokeMiter(limit: number): void; setShader(shader: unknown | null): void; setAlphaf(alpha: number): void; setImageFilter(filter: unknown): void; delete(): void; [k: string]: unknown }
   Color4f(r: number, g: number, b: number, a: number): Float32Array
   LTRBRect(l: number, t: number, r: number, b: number): Float32Array
 
@@ -41,6 +41,12 @@ export interface CanvasKitLike {
     MakeRadialGradient(center: number[], radius: number, colors: Float32Array[], positions: number[] | null, mode: unknown): unknown
   }
   PathEffect?: { MakeDash(intervals: number[], phase?: number): unknown; [k: string]: unknown }
+  ImageFilter?: {
+    MakeDropShadow(dx: number, dy: number, sigmaX: number, sigmaY: number, color: Float32Array, input: unknown): unknown
+    MakeBlur(sigmaX: number, sigmaY: number, tileMode: unknown, input: unknown): unknown
+    MakeCompose(outer: unknown, inner: unknown): unknown
+    [k: string]: unknown
+  }
 
   // Surface / canvas
   MakeWebGLCanvasSurface?(canvas: HTMLCanvasElement, colorSpace?: unknown, opts?: unknown): unknown
@@ -86,6 +92,8 @@ export interface ObjectJSON {
   locked: boolean
   /** Custom ports override — only present when the object has non-default ports. */
   ports?: Port[]
+  /** Visual effects — only present when non-empty. */
+  effects?: Effect[]
   [key: string]: unknown
 }
 
@@ -243,6 +251,27 @@ export interface Plugin {
    */
   uninstall(stage: StageInterface): void
 }
+
+// ---------------------------------------------------------------------------
+// Effects
+// ---------------------------------------------------------------------------
+
+export interface DropShadowEffect {
+  type: 'drop-shadow'
+  offsetX: number
+  offsetY: number
+  /** Blur sigma (equal sigmaX / sigmaY for a circular shadow). */
+  blur: number
+  color: ColorRGBA
+}
+
+export interface BlurEffect {
+  type: 'blur'
+  /** Blur sigma radius applied equally on both axes. */
+  radius: number
+}
+
+export type Effect = DropShadowEffect | BlurEffect
 
 // ---------------------------------------------------------------------------
 // Ports / anchor points

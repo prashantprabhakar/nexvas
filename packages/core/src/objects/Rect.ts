@@ -1,6 +1,6 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
 import { BoundingBox } from '../math/BoundingBox.js'
-import { makeFillPaint, makeStrokePaint, fillCacheKey, strokeCacheKey, type PaintCK, type SkPaint } from '../renderer/paint.js'
+import { makeFillPaint, makeStrokePaint, fillCacheKey, strokeCacheKey, makeEffectPaint, effectsCacheKey, type PaintCK, type EffectCK, type SkPaint } from '../renderer/paint.js'
 import type { RenderContext, ObjectJSON } from '../types.js'
 
 // Minimal CanvasKit canvas interface for Rect
@@ -8,6 +8,7 @@ interface SkCanvas {
   save(): number
   restore(): void
   concat(matrix: ArrayLike<number>): void
+  saveLayer(paint: unknown): number
   drawRect(rect: ArrayLike<number>, paint: unknown): void
   drawRRect(rrect: ArrayLike<number>, paint: unknown): void
 }
@@ -47,6 +48,16 @@ export class Rect extends BaseObject {
     canvas.save()
     canvas.concat(this.getLocalTransform().values)
 
+    const hasEffects = this.effects.length > 0
+    if (hasEffects) {
+      const key = effectsCacheKey(this.effects)
+      if (this._effectPaintCache?.key !== key) {
+        ;(this._effectPaintCache?.paint as SkPaint | undefined)?.delete()
+        this._effectPaintCache = { paint: makeEffectPaint(ck as unknown as EffectCK, this.effects), key }
+      }
+      canvas.saveLayer(this._effectPaintCache!.paint)
+    }
+
     const rect = ck.LTRBRect(0, 0, this.width, this.height)
 
     if (this.fill) {
@@ -84,6 +95,7 @@ export class Rect extends BaseObject {
       this._strokePaintCache = null
     }
 
+    if (hasEffects) canvas.restore()
     canvas.restore()
   }
 

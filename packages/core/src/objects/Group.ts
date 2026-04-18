@@ -1,12 +1,14 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
 import { BoundingBox } from '../math/BoundingBox.js'
 import { objectFromJSON } from './objectFromJSON.js'
+import { makeEffectPaint, effectsCacheKey, type EffectCK, type SkPaint } from '../renderer/paint.js'
 import type { RenderContext, ObjectJSON, ObjectEventMap, ObjectDeserializer } from '../types.js'
 
 interface SkCanvas {
   save(): number
   restore(): void
   concat(matrix: ArrayLike<number>): void
+  saveLayer(paint: unknown): number
   clipRect(rect: ArrayLike<number>, op: unknown, doAntiAlias: boolean): void
 }
 
@@ -181,6 +183,16 @@ export class Group extends BaseObject {
     // building up the full world transform via canvas state accumulation.
     canvas.concat(this.getLocalTransform().values)
 
+    const hasEffects = this.effects.length > 0
+    if (hasEffects) {
+      const key = effectsCacheKey(this.effects)
+      if (this._effectPaintCache?.key !== key) {
+        ;(this._effectPaintCache?.paint as SkPaint | undefined)?.delete()
+        this._effectPaintCache = { paint: makeEffectPaint(ctx.canvasKit as unknown as EffectCK, this.effects), key }
+      }
+      canvas.saveLayer(this._effectPaintCache!.paint)
+    }
+
     if (this.clip) {
       canvas.clipRect(ck.LTRBRect(0, 0, this.width, this.height), ck.ClipOp.Intersect, true)
     }
@@ -189,6 +201,7 @@ export class Group extends BaseObject {
       if (child.visible) child.render(ctx)
     }
 
+    if (hasEffects) canvas.restore()
     canvas.restore()
   }
 

@@ -2,7 +2,7 @@
  * Internal paint/color helpers for CanvasKit rendering.
  * Not exported from the public package API.
  */
-import type { Fill, StrokeStyle, ColorRGBA, SolidFill, LinearGradientFill, RadialGradientFill, ArrowHeadStyle } from '../types.js'
+import type { Fill, StrokeStyle, ColorRGBA, SolidFill, LinearGradientFill, RadialGradientFill, ArrowHeadStyle, Effect } from '../types.js'
 
 // ---------------------------------------------------------------------------
 // Minimal CanvasKit interfaces needed by this module
@@ -18,11 +18,36 @@ export interface SkPaint {
   setStrokeMiter(limit: number): void
   setShader(shader: unknown | null): void
   setAlphaf(alpha: number): void
+  setImageFilter(filter: unknown): void
+  delete(): void
+}
+
+export interface SkImageFilter {
   delete(): void
 }
 
 interface SkShader {
   delete(): void
+}
+
+export interface EffectCK extends PaintCK {
+  ImageFilter: {
+    MakeDropShadow(
+      dx: number,
+      dy: number,
+      sigmaX: number,
+      sigmaY: number,
+      color: Float32Array,
+      input: SkImageFilter | null,
+    ): SkImageFilter | null
+    MakeBlur(
+      sigmaX: number,
+      sigmaY: number,
+      tileMode: unknown,
+      input: SkImageFilter | null,
+    ): SkImageFilter | null
+    MakeCompose(outer: SkImageFilter, inner: SkImageFilter): SkImageFilter | null
+  }
 }
 
 export interface PaintCK {
@@ -308,4 +333,63 @@ export function withPaint<T>(ck: PaintCK, fn: (paint: SkPaint) => T): T {
   } finally {
     paint.delete()
   }
+}
+
+// ---------------------------------------------------------------------------
+// Effect paint — used for saveLayer when effects are present
+// ---------------------------------------------------------------------------
+
+function makeEffectsImageFilter(ck: EffectCK, effects: Effect[]): SkImageFilter | null {
+  let result: SkImageFilter | null = null
+  for (const effect of effects) {
+    let filter: SkImageFilter | null = null
+    if (effect.type === 'drop-shadow') {
+      filter = ck.ImageFilter.MakeDropShadow(
+        effect.offsetX,
+        effect.offsetY,
+        effect.blur,
+        effect.blur,
+        ck.Color4f(effect.color.r, effect.color.g, effect.color.b, effect.color.a),
+        null,
+      )
+    } else if (effect.type === 'blur') {
+      filter = ck.ImageFilter.MakeBlur(effect.radius, effect.radius, ck.TileMode.Clamp, null)
+    }
+    if (filter !== null) {
+      if (result !== null) {
+        const composed = ck.ImageFilter.MakeCompose(result, filter)
+        result.delete()
+        filter.delete()
+        result = composed
+      } else {
+        result = filter
+      }
+    }
+  }
+  return result
+}
+
+/**
+ * Create a saveLayer paint that composites the object with the given effects.
+ * The caller is responsible for calling `paint.delete()` when done.
+ *
+ * Pass to `canvas.saveLayer(paint)` before drawing the object, then call
+ * `canvas.restore()` after drawing to composite the layer with the filter applied.
+ */
+export function makeEffectPaint(ck: EffectCK, effects: Effect[]): SkPaint {
+  const paint = new ck.Paint()
+  const filter = makeEffectsImageFilter(ck, effects)
+  if (filter !== null) {
+    paint.setImageFilter(filter)
+    filter.delete()
+  }
+  return paint
+}
+
+/**
+ * Returns a stable cache key for an array of effects.
+ * Simple JSON serialization — effects arrays are typically small (1–3 items).
+ */
+export function effectsCacheKey(effects: Effect[]): string {
+  return JSON.stringify(effects)
 }

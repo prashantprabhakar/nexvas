@@ -1,6 +1,6 @@
 import { Matrix3x3 } from '../math/Matrix3x3.js'
 import { BoundingBox } from '../math/BoundingBox.js'
-import type { ObjectJSON, RenderContext, ObjectEventMap, Fill, StrokeStyle, Port } from '../types.js'
+import type { ObjectJSON, RenderContext, ObjectEventMap, Fill, StrokeStyle, Port, Effect } from '../types.js'
 
 export type EventHandler<T> = (event: T) => void
 
@@ -43,6 +43,11 @@ export interface BaseObjectProps {
    * attachment points — the defaults are inferred and not persisted in JSON.
    */
   ports?: Port[]
+  /**
+   * Visual effects applied to this object via a save-layer composite.
+   * Empty array = no effects. Supported: `'drop-shadow'`, `'blur'`.
+   */
+  effects?: Effect[]
 }
 
 /**
@@ -154,6 +159,11 @@ export abstract class BaseObject {
    * the defaults with your own named attachment points.
    */
   ports: Port[]
+  /**
+   * Visual effects composited via a save-layer. Applied in order; each effect
+   * creates an image filter that is combined via `MakeCompose`. Empty = no effects.
+   */
+  effects: Effect[]
 
   /** Reference to the parent Group, set by Group.add(). */
   parent: BaseObject | null = null
@@ -166,6 +176,8 @@ export abstract class BaseObject {
   _fillPaintCache: { paint: unknown; key: string } | null = null
   /** @internal Cached stroke SkPaint — reused across frames, rebuilt only when stroke/opacity changes. */
   _strokePaintCache: { paint: unknown; key: string } | null = null
+  /** @internal Cached effect saveLayer paint — reused across frames, rebuilt only when effects change. */
+  _effectPaintCache: { paint: unknown; key: string } | null = null
   /** @internal Set by Layer to receive notifications when this object's bbox changes. */
   private _onBBoxChange: (() => void) | null = null
   /** @internal Set by Layer to receive notifications when this object's properties change. */
@@ -196,6 +208,7 @@ export abstract class BaseObject {
     this.isResizable = props.isResizable ?? true
     this.hitTolerance = props.hitTolerance ?? 4
     this.ports = props.ports ?? []
+    this.effects = props.effects ?? []
   }
 
   // ---------------------------------------------------------------------------
@@ -398,6 +411,8 @@ export abstract class BaseObject {
     }
     // Only persist custom ports — default ports are always inferred.
     if (this.ports.length > 0) json.ports = this.ports
+    // Only persist effects when present.
+    if (this.effects.length > 0) json.effects = this.effects
     return json
   }
 
@@ -425,6 +440,7 @@ export abstract class BaseObject {
     this.isResizable = typeof json['isResizable'] === 'boolean' ? json['isResizable'] : true
     this.hitTolerance = sanitizeFinite(json['hitTolerance'], 4)
     this.ports = Array.isArray(json.ports) ? (json.ports as Port[]) : []
+    this.effects = Array.isArray(json.effects) ? (json.effects as Effect[]) : []
   }
 
   // ---------------------------------------------------------------------------
@@ -462,7 +478,9 @@ export abstract class BaseObject {
     this.parent = null
     ;(this._fillPaintCache?.paint as { delete(): void } | undefined)?.delete()
     ;(this._strokePaintCache?.paint as { delete(): void } | undefined)?.delete()
+    ;(this._effectPaintCache?.paint as { delete(): void } | undefined)?.delete()
     this._fillPaintCache = null
     this._strokePaintCache = null
+    this._effectPaintCache = null
   }
 }

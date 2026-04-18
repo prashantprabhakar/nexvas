@@ -30,6 +30,10 @@ export function createMockCanvas() {
     drawParagraph: (...args: unknown[]) => calls.push({ method: 'drawParagraph', args }),
     drawImageRect: (...args: unknown[]) => calls.push({ method: 'drawImageRect', args }),
     clipRect: (...args: unknown[]) => calls.push({ method: 'clipRect', args }),
+    saveLayer: (...args: unknown[]) => {
+      calls.push({ method: 'saveLayer', args })
+      return 0
+    },
   }
   return canvas
 }
@@ -45,6 +49,7 @@ export function createMockPaint() {
     setStrokeMiter: () => {},
     setShader: () => {},
     setAlphaf: () => {},
+    setImageFilter: () => {},
     delete: () => {},
   }
 }
@@ -149,6 +154,14 @@ export function createMockCK() {
     MakeImageFromEncoded: () => null,
     FilterMode: { Linear: 'Linear' },
     MipmapMode: { Linear: 'Linear' },
+    ImageFilter: {
+      MakeDropShadow: (_dx: number, _dy: number, _sx: number, _sy: number, _color: Float32Array, _input: unknown) =>
+        ({ delete: () => {} }),
+      MakeBlur: (_sx: number, _sy: number, _tileMode: unknown, _input: unknown) =>
+        ({ delete: () => {} }),
+      MakeCompose: (_outer: unknown, _inner: unknown) =>
+        ({ delete: () => {} }),
+    },
   }
 }
 

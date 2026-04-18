@@ -279,7 +279,7 @@ export class GuidesPlugin implements Plugin {
 
   private _drawGuides(ctx: RenderContext): void {
     if (this._activeGuides.length === 0 || !ctx.skCanvas || !ctx.canvasKit) return
-    const ck = ctx.canvasKit as GuidesCK
+    const ck = ctx.canvasKit as unknown as GuidesCK
     const canvas = ctx.skCanvas as SkCanvas
     const vp = ctx.viewport
     const color = this._options.color

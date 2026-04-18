@@ -1,7 +1,7 @@
 import { BaseObject, type BaseObjectProps } from './BaseObject.js'
 import { BoundingBox } from '../math/BoundingBox.js'
 import type { RenderContext, ObjectJSON } from '../types.js'
-import type { PaintCK, SkPaint } from '../renderer/paint.js'
+import { makeEffectPaint, effectsCacheKey, type PaintCK, type EffectCK, type SkPaint } from '../renderer/paint.js'
 
 interface SkImage {
   width(): number
@@ -13,6 +13,7 @@ interface SkCanvas {
   save(): number
   restore(): void
   concat(matrix: ArrayLike<number>): void
+  saveLayer(paint: unknown): number
   drawImageRect(
     img: SkImage,
     src: number[],
@@ -224,6 +225,16 @@ export class CanvasImage extends BaseObject {
     canvas.save()
     canvas.concat(this.getLocalTransform().values)
 
+    const hasEffects = this.effects.length > 0
+    if (hasEffects) {
+      const key = effectsCacheKey(this.effects)
+      if (this._effectPaintCache?.key !== key) {
+        ;(this._effectPaintCache?.paint as SkPaint | undefined)?.delete()
+        this._effectPaintCache = { paint: makeEffectPaint(ck as unknown as EffectCK, this.effects), key }
+      }
+      canvas.saveLayer(this._effectPaintCache!.paint)
+    }
+
     const { src, dst } = this._computeRects(this._skImage.width(), this._skImage.height())
 
     const imgKey = `img:${this.opacity}`
@@ -236,6 +247,7 @@ export class CanvasImage extends BaseObject {
     }
     canvas.drawImageRect(this._skImage, src, dst, this._fillPaintCache!.paint as SkPaint)
 
+    if (hasEffects) canvas.restore()
     canvas.restore()
   }
 

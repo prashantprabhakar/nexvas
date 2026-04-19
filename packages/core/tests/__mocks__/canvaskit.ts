@@ -138,7 +138,8 @@ export function createMockCK() {
         moveTo() { this.calls.push('moveTo') }
         lineTo() { this.calls.push('lineTo') }
         cubicTo() { this.calls.push('cubicTo') }
-        close() {}
+        close() { this.calls.push('close') }
+        contains(_x: number, _y: number) { return false }
         delete() {}
       },
       { MakeFromSVGString: (_svg: string) => createMockPath() },

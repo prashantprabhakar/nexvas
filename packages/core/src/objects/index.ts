@@ -15,3 +15,4 @@ export {
   type ConnectorJSON,
 } from './Connector.js'
 export type { ConnectorRouting, RoutePoint } from './routing/types.js'
+export { Polygon, type PolygonProps } from './Polygon.js'

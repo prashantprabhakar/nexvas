@@ -229,6 +229,10 @@ export interface StageEventMap extends ObjectEventMap {
   'group:dissolved': { group: Group; layer: Layer; members: BaseObject[] }
   /** Fired by ClipboardPlugin when objects are pasted onto the stage. */
   'clipboard:paste': { objects: BaseObject[] }
+  /** Fired by AnimatePlugin when a tween, sequence, or parallel animation completes. */
+  'animate:complete': { animation: unknown }
+  /** Fired by AnimatePlugin when a tween, sequence, or parallel animation is cancelled. */
+  'animate:cancel': { animation: unknown }
 }
 
 // ---------------------------------------------------------------------------

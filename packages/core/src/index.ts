@@ -30,6 +30,18 @@ export {
   type PathProps,
   Group,
   type GroupProps,
+  Connector,
+  type ConnectorProps,
+  type ConnectorEndpoint,
+  type ConnectorEndpointFixed,
+  type ConnectorEndpointRef,
+  type ConnectorJSON,
+  type ConnectorRouting,
+  type RoutePoint,
+  Polygon,
+  type PolygonProps,
+  Star,
+  type StarProps,
 } from './objects/index.js'
 export { objectFromJSON } from './objects/objectFromJSON.js'
 export { migrate, CURRENT_SCHEMA_VERSION } from './migrate.js'
@@ -63,4 +75,5 @@ export type {
   StrokeLineJoin,
   ColorRGBA,
   ObjectMutationEvent,
+  Port,
 } from './types.js'

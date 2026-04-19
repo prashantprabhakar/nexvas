@@ -1,0 +1,35 @@
+{
+  "name": "@nexvas/plugin-connector",
+  "version": "0.0.1",
+  "description": "ConnectorPlugin for nexvas",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && tsc --emitDeclarationOnly --declaration",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@nexvas/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@nexvas/core": "workspace:*",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1",
+    "vitest": "^4.1.0",
+    "jsdom": "^29.0.1"
+  }
+}

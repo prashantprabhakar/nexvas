@@ -222,9 +222,7 @@ export abstract class BaseObject {
   getLocalTransform(): Matrix3x3 {
     if (this._localTransformCache !== null) return this._localTransformCache
     const rotRad = (this.rotation * Math.PI) / 180
-    this._localTransformCache = Matrix3x3.translation(this.x, this.y)
-      .multiply(Matrix3x3.rotation(rotRad))
-      .multiply(Matrix3x3.scale(this.scaleX, this.scaleY))
+    this._localTransformCache = Matrix3x3.fromTRS(this.x, this.y, rotRad, this.scaleX, this.scaleY)
     return this._localTransformCache
   }
 

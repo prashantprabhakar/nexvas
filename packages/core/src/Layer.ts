@@ -207,12 +207,12 @@ export class Layer {
 
     if (candidates.length === 0) return null
 
-    const candidateSet = new Set<BaseObject>(candidates.map((c: RBushItem) => c.obj))
-
     // Walk in reverse z-order (topmost first) and test only candidates.
+    // Avoids Set + map allocation on every mouse event; candidate counts from the
+    // tight spatial query are small so linear scan outperforms Set construction.
     for (let i = this._objects.length - 1; i >= 0; i--) {
       const obj = this._objects[i]!
-      if (!candidateSet.has(obj)) continue
+      if (!candidates.some((c: RBushItem) => c.obj === obj)) continue
       if (obj instanceof Group) {
         const hit = obj.hitTestChild(worldX, worldY, tolerance)
         if (hit !== null) return hit

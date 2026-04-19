@@ -73,4 +73,18 @@ describe('Matrix3x3', () => {
     const m = Matrix3x3.translation(3, 7)
     expect(m.toAffine6()).toHaveLength(6)
   })
+
+  it('fromTRS matches chained translation/rotation/scale', () => {
+    const tx = 5, ty = -3, r = Math.PI / 4, sx = 2, sy = 0.5
+    const chained = Matrix3x3.translation(tx, ty)
+      .multiply(Matrix3x3.rotation(r))
+      .multiply(Matrix3x3.scale(sx, sy))
+    const fast = Matrix3x3.fromTRS(tx, ty, r, sx, sy)
+    expect(fast.equals(chained)).toBe(true)
+  })
+
+  it('fromTRS identity params give identity matrix', () => {
+    const m = Matrix3x3.fromTRS(0, 0, 0, 1, 1)
+    expect(m.equals(Matrix3x3.IDENTITY)).toBe(true)
+  })
 })

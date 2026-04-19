@@ -44,6 +44,17 @@ export class Matrix3x3 {
     return new Matrix3x3(sx, 0, 0, 0, sy, 0, 0, 0, 1)
   }
 
+  /**
+   * Single-pass TRS factory: translate → rotate → scale.
+   * Equivalent to `translation(tx,ty).multiply(rotation(r)).multiply(scale(sx,sy))`
+   * but allocates only one matrix.
+   */
+  static fromTRS(tx: number, ty: number, radians: number, sx: number, sy: number): Matrix3x3 {
+    const cos = Math.cos(radians)
+    const sin = Math.sin(radians)
+    return new Matrix3x3(cos * sx, -sin * sy, tx, sin * sx, cos * sy, ty, 0, 0, 1)
+  }
+
   multiply(other: Matrix3x3): Matrix3x3 {
     const [a, b, c, d, e, f, g, h, i] = this.values
     const [j, k, l, m, n, o, p, q, r] = other.values

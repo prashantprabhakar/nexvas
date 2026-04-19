@@ -227,6 +227,8 @@ export interface StageEventMap extends ObjectEventMap {
    * the children in their original order.
    */
   'group:dissolved': { group: Group; layer: Layer; members: BaseObject[] }
+  /** Fired by ClipboardPlugin when objects are pasted onto the stage. */
+  'clipboard:paste': { objects: BaseObject[] }
 }
 
 // ---------------------------------------------------------------------------

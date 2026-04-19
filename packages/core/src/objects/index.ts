@@ -16,3 +16,4 @@ export {
 } from './Connector.js'
 export type { ConnectorRouting, RoutePoint } from './routing/types.js'
 export { Polygon, type PolygonProps } from './Polygon.js'
+export { Star, type StarProps } from './Star.js'

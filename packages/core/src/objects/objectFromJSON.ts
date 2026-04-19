@@ -7,6 +7,7 @@ import { Path } from './Path.js'
 import { Text } from './Text.js'
 import { CanvasImage } from './CanvasImage.js'
 import { Group } from './Group.js'
+import { Connector } from './Connector.js'
 
 /**
  * Deserialize a plain JSON object (from `toJSON()`) back into a typed scene object.
@@ -38,6 +39,8 @@ export function objectFromJSON(
       return CanvasImage.fromJSON(json)
     case 'Group':
       return Group.fromJSON(json, registry)
+    case 'Connector':
+      return Connector.fromJSON(json)
     default: {
       const deserializer = registry?.get(json.type)
       if (deserializer !== undefined) return deserializer(json)

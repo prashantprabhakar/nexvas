@@ -132,9 +132,17 @@ export function createMockCK() {
     LTRBRect: (l: number, t: number, r: number, b: number) => new Float32Array([l, t, r, b]),
     RRectXY: (rect: Float32Array, rx: number, ry: number) =>
       new Float32Array([...rect, rx, ry, rx, ry, rx, ry, rx, ry]),
-    Path: {
-      MakeFromSVGString: (_svg: string) => createMockPath(),
-    },
+    Path: Object.assign(
+      class {
+        calls: string[] = []
+        moveTo() { this.calls.push('moveTo') }
+        lineTo() { this.calls.push('lineTo') }
+        cubicTo() { this.calls.push('cubicTo') }
+        close() {}
+        delete() {}
+      },
+      { MakeFromSVGString: (_svg: string) => createMockPath() },
+    ),
     TextAlign: { Left: 'Left', Center: 'Center', Right: 'Right' },
     FontWeight: { Normal: 400, Bold: 700, 400: 400, 700: 700 },
     FontWidth: { Normal: 5 },

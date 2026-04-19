@@ -440,7 +440,9 @@ export class SelectionPlugin implements Plugin {
       startWorldY: e.world.y,
       initialPositions,
       ...(handle !== undefined && { handle }),
-      ...(rotCenterX !== undefined && { rotCenterX, rotCenterY, startAngle }),
+      ...(rotCenterX !== undefined && rotCenterY !== undefined && startAngle !== undefined
+        ? { rotCenterX, rotCenterY, startAngle }
+        : {}),
     }
   }
 
@@ -724,7 +726,7 @@ export class SelectionPlugin implements Plugin {
 
   private _drawSelection(ctx: RenderContext): void {
     if (this._selected.size === 0 || !ctx.skCanvas || !ctx.canvasKit) return
-    const ck = ctx.canvasKit as SelectionCK
+    const ck = ctx.canvasKit as unknown as SelectionCK
     const canvas = ctx.skCanvas as SkCanvas
     const vp = ctx.viewport
     // invScale keeps stroke widths and handle sizes constant in screen pixels regardless of zoom

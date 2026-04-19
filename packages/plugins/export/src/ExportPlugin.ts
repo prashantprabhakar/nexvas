@@ -127,7 +127,7 @@ export class ExportPlugin implements Plugin {
   /** Export to PDF. Returns a Blob containing the PDF bytes. */
   async exportPDF(options: ExportOptions = {}): Promise<Blob> {
     if (!this._stage) throw new Error('[ExportPlugin] Plugin is not installed.')
-    const ck = this._stage.canvasKit as ExportCK
+    const ck = this._stage.canvasKit as unknown as ExportCK
     const region = this._resolveRegion(options)
     const scale = options.scale ?? 1
     const w = region.width * scale
@@ -168,7 +168,7 @@ export class ExportPlugin implements Plugin {
     quality = 90,
   ): Promise<Uint8Array> {
     if (!this._stage) throw new Error('[ExportPlugin] Plugin is not installed.')
-    const ck = this._stage.canvasKit as ExportCK
+    const ck = this._stage.canvasKit as unknown as ExportCK
     const region = this._resolveRegion(options)
     const scale = options.scale ?? 1
     const w = Math.ceil(region.width * scale)
@@ -223,6 +223,7 @@ export class ExportPlugin implements Plugin {
       canvasKit: this._stage.canvasKit,
       fontManager: this._stage.fonts,
       pixelRatio: scale,
+      stage: this._stage,
       viewport: {
         x: -region.x * scale,
         y: -region.y * scale,

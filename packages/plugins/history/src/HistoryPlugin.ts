@@ -53,14 +53,14 @@ class BatchPropertyCommand implements HistoryCommand {
 
   apply(): void {
     for (const m of this.mutations) {
-      ;(m.object as Record<string, unknown>)[m.property] = m.newValue
+      ;(m.object as unknown as Record<string, unknown>)[m.property] = m.newValue
     }
   }
 
   undo(): void {
     for (let i = this.mutations.length - 1; i >= 0; i--) {
       const m = this.mutations[i]!
-      ;(m.object as Record<string, unknown>)[m.property] = m.oldValue
+      ;(m.object as unknown as Record<string, unknown>)[m.property] = m.oldValue
     }
   }
 }
@@ -229,8 +229,8 @@ export class HistoryPlugin implements Plugin {
    * unsaved changes.
    */
   checkpoint(label?: string): void {
-    this._checkpoints.push({ label, stackIndex: this._undoStack.length })
-    this._stage?.emit('history:checkpoint', { label })
+    this._checkpoints.push({ ...(label !== undefined ? { label } : {}), stackIndex: this._undoStack.length })
+    this._stage?.emit('history:checkpoint', { ...(label !== undefined ? { label } : {}) })
   }
 
   /** All checkpoints recorded since the last clear(). */

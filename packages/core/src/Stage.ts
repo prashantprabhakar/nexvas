@@ -533,6 +533,7 @@ export class Stage implements StageInterface {
       fontManager: this.fonts,
       pixelRatio: this._pixelRatio,
       viewport: vp,
+      stage: this,
     }
 
     // Pre-render passes (e.g. grid background)

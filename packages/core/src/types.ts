@@ -118,6 +118,8 @@ export interface RenderContext {
   pixelRatio: number
   /** Current viewport state. */
   viewport: ViewportState
+  /** The stage — used by Connector to resolve object port positions at render time. */
+  stage: StageInterface
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +370,8 @@ export interface StageInterface {
   find(predicate: (obj: BaseObject) => boolean): BaseObject[]
   /** Find all objects of a specific type string (e.g. "Rect", "Circle"). */
   findByType(type: string): BaseObject[]
+  /** Find an object by its id across all layers. Returns undefined if not found. */
+  getObjectById(id: string): BaseObject | undefined
   /**
    * Register a custom object type for deserialization.
    * Once registered, `loadJSON()` will use the provided deserializer whenever

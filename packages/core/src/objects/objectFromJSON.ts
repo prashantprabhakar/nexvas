@@ -9,6 +9,7 @@ import { CanvasImage } from './CanvasImage.js'
 import { Group } from './Group.js'
 import { Connector } from './Connector.js'
 import { Polygon } from './Polygon.js'
+import { Star } from './Star.js'
 
 /**
  * Deserialize a plain JSON object (from `toJSON()`) back into a typed scene object.
@@ -44,6 +45,8 @@ export function objectFromJSON(
       return Connector.fromJSON(json)
     case 'Polygon':
       return Polygon.fromJSON(json)
+    case 'Star':
+      return Star.fromJSON(json)
     default: {
       const deserializer = registry?.get(json.type)
       if (deserializer !== undefined) return deserializer(json)

@@ -16,6 +16,10 @@ function makeCtx(vpX = 0, vpY = 0, scale = 1, width = 800, height = 600): Render
     pixelRatio: 1,
     viewport: { x: vpX, y: vpY, scale, width, height },
     stage: {} as unknown as StageInterface,
+    cullingRect:
+      width > 0 && height > 0
+        ? { minX: -vpX / scale, minY: -vpY / scale, maxX: (-vpX + width) / scale, maxY: (-vpY + height) / scale }
+        : null,
   }
 }
 

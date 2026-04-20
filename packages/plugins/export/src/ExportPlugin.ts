@@ -231,6 +231,10 @@ export class ExportPlugin implements Plugin {
         width: region.width,
         height: region.height,
       },
+      cullingRect:
+        region.width > 0 && region.height > 0
+          ? { minX: region.x, minY: region.y, maxX: region.x + region.width, maxY: region.y + region.height }
+          : null,
     }
 
     for (const layer of this._stage.layers as unknown as Layer[]) {

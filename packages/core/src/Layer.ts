@@ -259,10 +259,8 @@ export class Layer {
   render(ctx: RenderContext): void {
     if (!this.visible) return
 
-    const vp = ctx.viewport
-
     // Zero-size viewport (test/headless): skip R-tree culling, render all visible objects.
-    if (vp.width <= 0 || vp.height <= 0) {
+    if (ctx.cullingRect === null) {
       for (const obj of this._objects) {
         if (!obj.visible) continue
         try {
@@ -274,12 +272,7 @@ export class Layer {
       return
     }
 
-    const minX = -vp.x / vp.scale
-    const minY = -vp.y / vp.scale
-    const maxX = minX + vp.width / vp.scale
-    const maxY = minY + vp.height / vp.scale
-
-    const candidates = this._index.search({ minX, minY, maxX, maxY })
+    const candidates = this._index.search(ctx.cullingRect)
     if (candidates.length === 0) return
 
     // Build set of in-viewport visible objects for O(1) lookup while iterating _objects in z-order.

@@ -120,6 +120,12 @@ export interface RenderContext {
   viewport: ViewportState
   /** The stage — used by Connector to resolve object port positions at render time. */
   stage: StageInterface
+  /**
+   * Pre-computed world-space culling rect for the current viewport.
+   * Null when the viewport is zero-size (headless/test). Computed once in
+   * Stage.render() so multiple layers don't redundantly recalculate it.
+   */
+  cullingRect: { minX: number; minY: number; maxX: number; maxY: number } | null
 }
 
 // ---------------------------------------------------------------------------

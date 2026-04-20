@@ -527,6 +527,16 @@ export class Stage implements StageInterface {
     skCanvas.translate(vp.x, vp.y)
     skCanvas.scale(vp.scale, vp.scale)
 
+    const cullingRect =
+      vp.width > 0 && vp.height > 0
+        ? {
+            minX: -vp.x / vp.scale,
+            minY: -vp.y / vp.scale,
+            maxX: (-vp.x + vp.width) / vp.scale,
+            maxY: (-vp.y + vp.height) / vp.scale,
+          }
+        : null
+
     const ctx: RenderContext = {
       skCanvas,
       canvasKit: this.canvasKit,
@@ -534,6 +544,7 @@ export class Stage implements StageInterface {
       pixelRatio: this._pixelRatio,
       viewport: vp,
       stage: this,
+      cullingRect,
     }
 
     // Pre-render passes (e.g. grid background)

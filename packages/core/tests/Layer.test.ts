@@ -3,7 +3,7 @@ import { Layer } from '../src/Layer.js'
 import { Rect } from '../src/objects/Rect.js'
 import { Group } from '../src/objects/Group.js'
 import { createMockCK, createMockCanvas } from './__mocks__/canvaskit.js'
-import type { RenderContext } from '../src/types.js'
+import type { RenderContext, StageInterface } from '../src/types.js'
 import type { FontManager } from '../src/FontManager.js'
 
 function makeCtx(vpX = 0, vpY = 0, scale = 1, width = 800, height = 600): RenderContext {
@@ -15,6 +15,7 @@ function makeCtx(vpX = 0, vpY = 0, scale = 1, width = 800, height = 600): Render
     fontManager: { hasFont: () => true, getFontProvider: () => ({}) } as unknown as FontManager,
     pixelRatio: 1,
     viewport: { x: vpX, y: vpY, scale, width, height },
+    stage: {} as unknown as StageInterface,
   }
 }
 
@@ -197,6 +198,18 @@ describe('Layer', () => {
       // vpX=-400, vpY=-400, scale=1, size=800x800 → world shown: (400,400)→(1200,1200)
       layer.render(makeCtx(-400, -400, 1, 800, 800))
       expect(renderSpy).toHaveBeenCalledOnce()
+    })
+
+    it('renders in z-order (back-to-front) when using R-tree culling', () => {
+      const layer = new Layer()
+      const renderOrder: string[] = []
+      const a = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      const b = new Rect({ x: 0, y: 0, width: 50, height: 50 })
+      vi.spyOn(a, 'render').mockImplementation(() => { renderOrder.push('a') })
+      vi.spyOn(b, 'render').mockImplementation(() => { renderOrder.push('b') })
+      layer.add(a).add(b) // a is below b in z-order
+      layer.render(makeCtx(0, 0, 1, 800, 600))
+      expect(renderOrder).toEqual(['a', 'b'])
     })
   })
 

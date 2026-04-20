@@ -2,7 +2,6 @@ import RBush from 'rbush'
 import type { BaseObject } from './objects/BaseObject.js'
 import { Group } from './objects/Group.js'
 import { objectFromJSON } from './objects/objectFromJSON.js'
-import { BoundingBox } from './math/BoundingBox.js'
 import type { RenderContext, LayerJSON, ObjectDeserializer } from './types.js'
 
 interface RBushItem {
@@ -260,19 +259,38 @@ export class Layer {
   render(ctx: RenderContext): void {
     if (!this.visible) return
 
-    // Compute world-space viewport rect for culling.
-    // When viewport dimensions are zero (e.g. test environments) culling is skipped.
     const vp = ctx.viewport
-    let viewportWorld: BoundingBox | null = null
-    if (vp.width > 0 && vp.height > 0) {
-      const minX = -vp.x / vp.scale
-      const minY = -vp.y / vp.scale
-      viewportWorld = new BoundingBox(minX, minY, vp.width / vp.scale, vp.height / vp.scale)
+
+    // Zero-size viewport (test/headless): skip R-tree culling, render all visible objects.
+    if (vp.width <= 0 || vp.height <= 0) {
+      for (const obj of this._objects) {
+        if (!obj.visible) continue
+        try {
+          obj.render(ctx)
+        } catch (err) {
+          console.error(`[nexvas:layer] Render error in object "${obj.id}" (${obj.getType()}):`, err)
+        }
+      }
+      return
     }
 
+    const minX = -vp.x / vp.scale
+    const minY = -vp.y / vp.scale
+    const maxX = minX + vp.width / vp.scale
+    const maxY = minY + vp.height / vp.scale
+
+    const candidates = this._index.search({ minX, minY, maxX, maxY })
+    if (candidates.length === 0) return
+
+    // Build set of in-viewport visible objects for O(1) lookup while iterating _objects in z-order.
+    const visibleSet = new Set<BaseObject>()
+    for (const c of candidates) {
+      if (c.obj.visible) visibleSet.add(c.obj)
+    }
+    if (visibleSet.size === 0) return
+
     for (const obj of this._objects) {
-      if (!obj.visible) continue
-      if (viewportWorld !== null && !obj.getWorldBoundingBox().intersects(viewportWorld)) continue
+      if (!visibleSet.has(obj)) continue
       try {
         obj.render(ctx)
       } catch (err) {

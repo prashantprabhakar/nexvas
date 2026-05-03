@@ -45,6 +45,7 @@ export {
 } from './objects/index.js'
 export { objectFromJSON } from './objects/objectFromJSON.js'
 export { migrate, CURRENT_SCHEMA_VERSION } from './migrate.js'
+export { makeTextStyle, type SkTextStyle, type MakeTextStyleOpts, type TextStyleCK } from './text-utils.js'
 
 // Math
 export { Vec2, Matrix3x3, BoundingBox } from './math/index.js'

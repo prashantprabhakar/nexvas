@@ -2,6 +2,7 @@ import { BaseObject, type BaseObjectProps } from './BaseObject.js'
 import { BoundingBox } from '../math/BoundingBox.js'
 import { colorToCK, makeEffectPaint, effectsCacheKey, type PaintCK, type EffectCK, type SkPaint } from '../renderer/paint.js'
 import type { RenderContext, ObjectJSON } from '../types.js'
+import { makeTextStyle, type SkTextStyle } from '../text-utils.js'
 
 export type TextAlign = 'left' | 'center' | 'right'
 export type TextBaseline = 'top' | 'middle' | 'bottom'
@@ -25,33 +26,6 @@ interface SkParagraph {
   layout(width: number): void
   getHeight(): number
   delete(): void
-}
-
-/**
- * All fields required by CanvasKit's TextStyle at runtime.
- * CanvasKit validates this struct strictly — missing any field throws at runtime.
- * Typed explicitly here so TypeScript catches omissions at compile time.
- */
-interface SkTextStyle {
-  color: Float32Array
-  decoration: number
-  decorationColor: Float32Array
-  decorationThickness: number
-  decorationStyle: unknown
-  fontFamilies: string[]
-  fontSize: number
-  fontStyle: { weight: unknown; width: unknown; slant: unknown }
-  foregroundColor: Float32Array
-  backgroundColor: Float32Array
-  heightMultiplier: number
-  halfLeading: boolean
-  letterSpacing: number
-  locale: string
-  shadows: unknown[]
-  fontFeatures: unknown[]
-  fontVariations: unknown[]
-  textBaseline: unknown
-  wordSpacing: number
 }
 
 interface SkParagraphBuilder {
@@ -164,14 +138,10 @@ export class Text extends BaseObject {
 
     const paraStyle = ck.ParagraphStyle({ textAlign: ckAlign, textStyle: { color: ck.Color4f(0, 0, 0, 1) } })
 
-    const textStyle = {
+    const textStyle: SkTextStyle = makeTextStyle(ck, {
       color: this.fill
         ? colorToCK(ck, this.fill.type === 'solid' ? this.fill.color : { r: 0, g: 0, b: 0, a: 1 })
         : ck.Color4f(0, 0, 0, 1),
-      decoration: 0,
-      decorationColor: ck.Color4f(0, 0, 0, 1),
-      decorationThickness: 0,
-      decorationStyle: ck.DecorationStyle.Solid,
       fontFamilies: [this.fontFamily, 'Noto Sans'],
       fontSize: this.fontSize,
       fontStyle: {
@@ -179,18 +149,8 @@ export class Text extends BaseObject {
         width: ck.FontWidth.Normal,
         slant: this.fontStyle === 'italic' ? ck.FontSlant.Italic : ck.FontSlant.Upright,
       },
-      foregroundColor: ck.Color4f(0, 0, 0, 0),
-      backgroundColor: ck.Color4f(0, 0, 0, 0),
       heightMultiplier: this.lineHeight,
-      halfLeading: false,
-      letterSpacing: 0,
-      locale: '',
-      shadows: [],
-      fontFeatures: [],
-      fontVariations: [],
-      textBaseline: ck.TextBaseline.Alphabetic,
-      wordSpacing: 0,
-    }
+    })
 
     const builder = ck.ParagraphBuilder.MakeFromFontProvider(paraStyle, fontMgr)
     builder.pushStyle(textStyle)

@@ -14,6 +14,7 @@ import {
 } from '../renderer/paint.js'
 import type { RenderContext, ObjectJSON, StageInterface, StrokeStyle } from '../types.js'
 import type { ConnectorRouting, Route, RoutePoint } from './routing/types.js'
+import { makeTextStyle, type SkTextStyle } from '../text-utils.js'
 import { routeStraight } from './routing/straight.js'
 import { routeOrthogonal } from './routing/orthogonal.js'
 import { routeCurved, sampleBezier } from './routing/curved.js'
@@ -45,7 +46,7 @@ interface SkParagraph {
 }
 
 interface SkParagraphBuilder {
-  pushStyle(style: unknown): void
+  pushStyle(style: SkTextStyle): void
   addText(text: string): void
   build(): SkParagraph
   delete(): void
@@ -467,31 +468,12 @@ export class Connector extends BaseObject {
     if (!this._labelParagraph) {
       const stroke = this.stroke ?? DEFAULT_CONNECTOR_STROKE
       const col = colorToCK(ck, stroke.color)
-      const textStyle = {
+      const textStyle: SkTextStyle = makeTextStyle(ck, {
         color: col,
-        decoration: 0,
-        decorationColor: ck.Color4f(0, 0, 0, 0),
-        decorationThickness: 0,
-        decorationStyle: ck.DecorationStyle.Solid,
         fontFamilies: ['Noto Sans'],
         fontSize: 12,
-        fontStyle: {
-          weight: ck.FontWeight.Normal,
-          width: ck.FontWidth.Normal,
-          slant: ck.FontSlant.Upright,
-        },
-        foregroundColor: ck.Color4f(0, 0, 0, 0),
-        backgroundColor: ck.Color4f(0, 0, 0, 0),
         heightMultiplier: 1.2,
-        halfLeading: false,
-        letterSpacing: 0,
-        locale: '',
-        shadows: [],
-        fontFeatures: [],
-        fontVariations: [],
-        textBaseline: ck.TextBaseline.Alphabetic,
-        wordSpacing: 0,
-      }
+      })
       const paraStyle = ck.ParagraphStyle({ textAlign: ck.TextAlign.Center, textStyle: { color: ck.Color4f(0, 0, 0, 1) } })
       const builder = ck.ParagraphBuilder.MakeFromFontProvider(paraStyle, fontProvider)
       builder.pushStyle(textStyle)
